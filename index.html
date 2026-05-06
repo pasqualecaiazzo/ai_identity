@@ -306,60 +306,85 @@ async function fetchAiFiles(baseUrl){
   };
   const isXmlSitemap=t=>/<urlset|<sitemapindex/i.test(t.substring(0,600));
 
+  // Ritorna {content, status} dove status = 'found' | 'absent' | 'unreachable'
   async function tryFetch(pathOrUrl){
     const fullUrl=pathOrUrl.startsWith('http')?pathOrUrl:base+pathOrUrl;
-    // Il direct fetch fallisce sempre per CORS — usiamo solo il proxy Vercel
     try{
       const r=await fetchWithTimeout('/api/fetch-page?raw=1&url='+encodeURIComponent(fullUrl),8000);
-      if(r.ok){const t=await r.text();console.log('proxy OK:',pathOrUrl.replace(base,''),t.substring(0,50));return t}
-    }catch(e){console.warn('proxy failed:',pathOrUrl,e.message)}
-    return null;
+      if(r.ok){
+        const t=await r.text();
+        console.log('proxy OK:',pathOrUrl.replace(base,''),t.substring(0,50));
+        return {content:t,status:'found'};
+      }
+      // 404 = assente verificato; altri codici = problema tecnico
+      const status=r.status===404?'absent':'unreachable';
+      console.log(`proxy ${r.status} (${status}):`,pathOrUrl.replace(base,''));
+      return {content:null,status};
+    }catch(e){
+      // Timeout o errore di rete = non raggiungibile
+      console.warn('proxy unreachable:',pathOrUrl,e.message);
+      return {content:null,status:'unreachable'};
+    }
   }
 
   // ── robots.txt ────────────────────────────────────────────────────
   const rb=await tryFetch('/robots.txt');
-  if(rb&&!isHtmlOrTrash(rb)) results.robotsTxt=rb.substring(0,1200);
+  if(rb.status==='found'&&rb.content&&!isHtmlOrTrash(rb.content)){
+    results.robotsTxt=rb.content.substring(0,1200);
+  } else if(rb.status==='unreachable'){
+    results.robotsTxtStatus='unreachable';
+  }
 
   // ── llms.txt ──────────────────────────────────────────────────────
   const ll=await tryFetch('/llms.txt');
-  if(ll&&!isHtmlOrTrash(ll)&&ll.trim().length>5) results.llmsTxt=ll.substring(0,800);
+  if(ll.status==='found'&&ll.content&&!isHtmlOrTrash(ll.content)&&ll.content.trim().length>5){
+    results.llmsTxt=ll.content.substring(0,800);
+  } else if(ll.status==='unreachable'){
+    results.llmsTxtStatus='unreachable';
+  }
 
   // ── sitemap: strategia multi-path ────────────────────────────────
-  // Percorsi da provare in ordine di probabilità per piattaforma
   const sitemapPaths=[
-    '/sitemap.xml',          // generico + Shopify + PrestaShop
-    '/sitemap_index.xml',    // Yoast SEO (WordPress)
-    '/wp-sitemap.xml',       // WordPress nativo ≥ 5.5
-    '/sitemap-index.xml',    // RankMath e altri
-    '/page-sitemap.xml',     // Yoast sub-sitemap fallback
+    '/sitemap.xml',
+    '/sitemap_index.xml',
+    '/wp-sitemap.xml',
+    '/sitemap-index.xml',
+    '/page-sitemap.xml',
   ];
 
-  // Prima controlla se robots.txt dichiara un URL Sitemap esplicito
   if(results.robotsTxt){
     const match=results.robotsTxt.match(/^Sitemap:\s*(.+)$/im);
     if(match){
       const declaredUrl=match[1].trim();
       console.log('Sitemap declared in robots.txt:',declaredUrl);
-      // Metti l'URL dichiarato in cima alla lista (rimuove duplicati)
       sitemapPaths.unshift(declaredUrl.startsWith('http')?declaredUrl:'/'+declaredUrl.replace(/^\//,''));
     }
   }
 
+  let sitemapAllUnreachable=true;
+  let sitemapTriedCount=0;
   for(const path of sitemapPaths){
     if(results.sitemapXml) break;
     const sm=await tryFetch(path);
-    if(sm&&isXmlSitemap(sm)){
+    sitemapTriedCount++;
+    if(sm.status==='found'&&sm.content&&isXmlSitemap(sm.content)){
       results.sitemapXml=true;
       results.sitemapUrl=path.startsWith('http')?path:base+path;
+      sitemapAllUnreachable=false;
       console.log('Sitemap found at:',results.sitemapUrl);
       break;
     }
+    if(sm.status==='absent') sitemapAllUnreachable=false; // almeno uno risponde
+  }
+  // Se tutti i path hanno dato errore tecnico (mai 404) → non raggiungibile
+  if(!results.sitemapXml&&sitemapAllUnreachable&&sitemapTriedCount>0){
+    results.sitemapStatus='unreachable';
   }
 
   console.log('aiFiles result:',JSON.stringify({
-    robotsTxt:!!results.robotsTxt,
-    llmsTxt:!!results.llmsTxt,
-    sitemapXml:results.sitemapXml,
+    robotsTxt:!!results.robotsTxt, robotsTxtStatus:results.robotsTxtStatus||'ok',
+    llmsTxt:!!results.llmsTxt, llmsTxtStatus:results.llmsTxtStatus||'ok',
+    sitemapXml:results.sitemapXml, sitemapStatus:results.sitemapStatus||'ok',
     sitemapUrl:results.sitemapUrl
   }));
   return results;
@@ -505,14 +530,29 @@ function computeScores(signals, aiFiles){
   if(signals?.h1s?.length>0&&signals?.description) coer+=15;
 
   // 4. Politica AI (peso 15%)
+  // Presente=pieno punteggio, Non raggiungibile=penalità quasi uguale ad assente
+  // (se i crawler AI non ci arrivano, è comunque un problema di accessibilità)
   let pol=0;
-  if(aiFiles?.llmsTxt) pol+=50;
-  if(aiFiles?.robotsTxt){
+  const fileStatus=(file,statusKey)=>{
+    if(file) return 'found';
+    if(aiFiles?.[statusKey]==='unreachable') return 'unreachable';
+    return 'absent';
+  };
+  const llmsStatus=fileStatus(aiFiles?.llmsTxt,'llmsTxtStatus');
+  const robotsStatus=fileStatus(aiFiles?.robotsTxt,'robotsTxtStatus');
+  const sitemapStatus=aiFiles?.sitemapXml?'found':(aiFiles?.sitemapStatus==='unreachable'?'unreachable':'absent');
+
+  if(llmsStatus==='found') pol+=50;
+  else if(llmsStatus==='unreachable') pol+=5; // esiste forse, ma inaccessibile ai crawler
+
+  if(robotsStatus==='found'){
     pol+=20;
     const rb=(aiFiles.robotsTxt||'').toLowerCase();
     if(!rb.includes('gptbot')&&!rb.includes('ccbot')&&!rb.includes('anthropic-ai')) pol+=15;
-  }
-  if(aiFiles?.sitemapXml) pol+=15;
+  } else if(robotsStatus==='unreachable') pol+=3;
+
+  if(sitemapStatus==='found') pol+=15;
+  else if(sitemapStatus==='unreachable') pol+=2;
 
   // 5. Profondità dell'Entità (peso 15%) — adattata al tipo
   let prof=0;
@@ -634,7 +674,7 @@ async function runAnalysis(){
   '- Specializzazione riconoscibile o entità generica?\n'+
   '\n'+
   'ISTRUZIONI:\n'+
-  '- "percezione_ai": 3-5 frasi in prima persona come sistema AI che analizza l\'entità. Adatta al contesto: per e-commerce descrivi prodotti/brand, per persone descrivi profilo professionale.\n'+
+  '- "percezione_ai": scrivi 3-5 frasi in prima persona come sistema AI esterno che osserva e descrive questa entità. Usa "questa entità", "il suo profilo", "il sito", mai "il mio profilo" o "la mia identità" — stai descrivendo qualcun altro, non te stesso. Esempio corretto: "Questa entità si presenta come... Il suo profilo è strutturato in modo da... La sua expertise risulta chiaramente definita..."\n'+
   '- "tipo": scegli tra Persona / Organizzazione / Brand / E-commerce / Prodotto\n'+
   '- SEO tradizionale: solo nota marginale nel campo sintesi\n'+
   '- Sii critico: senza Wikidata e senza JSON-LD manuale/nativo ricco non si supera 45/100\n'+
@@ -656,15 +696,20 @@ PUNTEGGI GIÀ CALCOLATI DAL CODICE (usali come riferimento, non inventarne altri
 - Score globale: ${scores.overall}/100`;
 
   const fetchTrapped=window._fetchTrapped===true;
+  const llmsStatus=aiFiles.llmsTxt?'PRESENTE':(aiFiles.llmsTxtStatus==='unreachable'?'NON RAGGIUNGIBILE (errore tecnico — potrebbe esistere ma i crawler AI non ci arrivano)':'ASSENTE (404 verificato)');
+  const robotsStatus=aiFiles.robotsTxt?'PRESENTE':(aiFiles.robotsTxtStatus==='unreachable'?'NON RAGGIUNGIBILE (errore tecnico)':'ASSENTE (404 verificato)');
+  const smStatus=aiFiles.sitemapXml?`PRESENTE (${aiFiles.sitemapUrl})`:(aiFiles.sitemapStatus==='unreachable'?'NON RAGGIUNGIBILE (errore tecnico — il server non risponde ai crawler automatizzati)':'ASSENTE (404 verificato su tutti i path standard)');
   const aiFilesInfo=`
 FETCH CONTEXT:
-- fetch_context: ${fetchTrapped?'pagina_protetta_da_redirect — il server reindirizza le richieste automatizzate (es. checkout, geo-redirect). JSON-LD, robots.txt e sitemap potrebbero esistere ma non sono stati raggiungibili.':'pagina_recuperata_correttamente'}
+- fetch_context: ${fetchTrapped?'pagina_protetta_da_redirect — il server reindirizza le richieste automatizzate. JSON-LD, robots.txt e sitemap potrebbero esistere ma non sono stati raggiungibili.':'pagina_recuperata_correttamente'}
 - Pagina principale recuperata: ${signals?'SÌ':'NO — analisi parziale'}
 
-FILE AI (rilevati con fetch diretto + proxy):
-- llms.txt: ${aiFiles.llmsTxt?'PRESENTE\n'+aiFiles.llmsTxt:fetchTrapped?'NON RAGGIUNGIBILE (redirect)':'ASSENTE'}
-- robots.txt: ${aiFiles.robotsTxt?'PRESENTE\n'+aiFiles.robotsTxt:fetchTrapped?'NON RAGGIUNGIBILE (redirect)':'ASSENTE'}
-- sitemap.xml: ${aiFiles.sitemapXml?'PRESENTE ('+aiFiles.sitemapUrl+')':fetchTrapped?'NON RAGGIUNGIBILE (redirect)':'ASSENTE'}`;
+FILE AI (ogni file: PRESENTE / ASSENTE verificato 404 / NON RAGGIUNGIBILE per errore tecnico):
+- llms.txt: ${llmsStatus}${aiFiles.llmsTxt?'\n'+aiFiles.llmsTxt:''}
+- robots.txt: ${robotsStatus}${aiFiles.robotsTxt?'\n'+aiFiles.robotsTxt:''}
+- sitemap: ${smStatus}
+
+NOTA PER L'ANALISI: "NON RAGGIUNGIBILE" significa che il file potrebbe esistere ma i sistemi di crawling automatizzato (inclusi i crawler AI) non riescono ad accedervi. Questo è un segnale negativo per l'accessibilità AI quasi quanto l'assenza — se un crawler AI non può leggere robots.txt o sitemap, non può navigare correttamente il sito. Distingui chiaramente nei tuoi commenti tra assenza verificata e inaccessibilità tecnica.`;
 
   const userMsg=signals
     ?`Analizza la AI readability di questa entità.
