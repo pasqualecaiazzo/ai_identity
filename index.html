@@ -228,7 +228,7 @@ async function fetchWithTimeout(url,ms){
 async function fetchPage(url){
   // 1. Netlify Function — tenta più headers, rileva pagine-trappola
   try{
-    const r=await fetchWithTimeout(`/.netlify/functions/fetch-page?url=${encodeURIComponent(url)}`,12000);
+    const r=await fetchWithTimeout(`/api/fetch-page?url=${encodeURIComponent(url)}`,12000);
     if(r.status===422){
       // Funzione raggiunta ma solo redirect/trap trovati
       const j=await r.json().catch(()=>({}));
@@ -308,14 +308,9 @@ async function fetchAiFiles(baseUrl){
 
   async function tryFetch(pathOrUrl){
     const fullUrl=pathOrUrl.startsWith('http')?pathOrUrl:base+pathOrUrl;
-    // 1. diretto (spesso bloccato da CORS, ma vale la pena provare)
+    // Il direct fetch fallisce sempre per CORS — usiamo solo il proxy Netlify
     try{
-      const r=await fetchWithTimeout(fullUrl,4000);
-      if(r.ok){const t=await r.text();console.log('direct OK:',pathOrUrl.replace(base,''),t.substring(0,50));return t}
-    }catch(e){console.warn('direct failed:',pathOrUrl,e.message)}
-    // 2. Netlify proxy con ?raw=1 — nessuna logica anti-redirect
-    try{
-      const r=await fetchWithTimeout('/.netlify/functions/fetch-page?raw=1&url='+encodeURIComponent(fullUrl),6000);
+      const r=await fetchWithTimeout('/api/fetch-page?raw=1&url='+encodeURIComponent(fullUrl),8000);
       if(r.ok){const t=await r.text();console.log('proxy OK:',pathOrUrl.replace(base,''),t.substring(0,50));return t}
     }catch(e){console.warn('proxy failed:',pathOrUrl,e.message)}
     return null;
@@ -712,7 +707,7 @@ ${aiFilesInfo}`;
   });
 
   async function callGemini(){
-    const res=await fetch('/.netlify/functions/gemini-analyze',{
+    const res=await fetch('/api/gemini-analyze',{
       method:'POST',headers:{'Content-Type':'application/json'},body:geminiBody
     });
     const rawText=await res.text();
