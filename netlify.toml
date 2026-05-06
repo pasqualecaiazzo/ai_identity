@@ -1,0 +1,6 @@
+[functions]
+  node_bundler = "esbuild"
+  directory = "netlify/functions"
+
+[context.production.environment]
+  NODE_VERSION = "18"

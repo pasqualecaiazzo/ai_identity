@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Readability Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07070F;--surface:#0D0D1C;--surface2:#111120;
+  --border:#1C1C30;--border2:#252540;
+  --gold:#C9A84C;--gold-l:#E5C96A;
+  --teal:#2DB885;--amber:#D4870E;--coral:#D84F35;
+  --text:#EDE8DF;--muted:#8080A0;--dim:#2E2E4A;
+}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding:0 1rem}
+.wrap{max-width:820px;margin:0 auto;padding:3rem 0 5rem}
+.header{text-align:center;padding:0 0 2.5rem;border-bottom:1px solid var(--border);margin-bottom:2.5rem}
+.eyebrow{font-size:.6rem;letter-spacing:.35em;color:var(--gold);text-transform:uppercase;margin-bottom:1rem;display:block}
+.header h1{font-family:'Playfair Display',serif;font-size:2.6rem;font-weight:700;line-height:1.15;margin-bottom:.75rem}
+.header h1 em{font-style:italic;color:var(--gold)}
+.header p{font-size:.78rem;color:var(--muted);line-height:1.8;max-width:460px;margin:0 auto}
+
+.key-bar{background:var(--surface);border:1px solid var(--border);padding:1rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.key-label{font-size:.6rem;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;flex-shrink:0}
+.input-section{background:var(--surface);border:1px solid var(--border);padding:1.5rem;margin-bottom:1rem}
+.field-label{display:block;font-size:.6rem;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-bottom:.75rem}
+.input-row{display:flex;gap:.75rem}
+.url-input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:.82rem;padding:.85rem 1rem;outline:none;transition:border-color .2s}
+.url-input:focus{border-color:var(--gold)}
+.url-input::placeholder{color:var(--dim)}
+.btn-analyze{background:var(--gold);color:var(--bg);border:none;font-family:'DM Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.4rem;cursor:pointer;transition:background .2s;white-space:nowrap}
+.btn-analyze:hover{background:var(--gold-l)}
+.btn-analyze:disabled{background:var(--dim);cursor:not-allowed}
+.error-box{display:none;background:rgba(216,79,53,.08);border:1px solid rgba(216,79,53,.3);color:var(--coral);padding:.75rem 1rem;font-size:.72rem;margin-top:.75rem;line-height:1.6}
+.loading{display:none;padding:3rem 1rem}
+.spinner{width:38px;height:38px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto 1.5rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+.steps{max-width:260px;margin:0 auto}
+.step-line{font-size:.65rem;color:var(--dim);letter-spacing:.05em;padding:.3rem 0;transition:color .3s}
+.step-line.active{color:var(--text);animation:fade 1.5s ease-in-out infinite}
+.step-line.done{color:var(--teal)}
+@keyframes fade{0%,100%{opacity:1}50%{opacity:.35}}
+.results{display:none;animation:slideIn .5s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.score-hero{background:var(--surface);border:1px solid var(--border);padding:1.75rem 2rem;display:flex;align-items:center;gap:2rem;margin-bottom:1rem}
+.ring-wrap{position:relative;flex-shrink:0;width:100px;height:100px}
+.ring-wrap svg{transform:rotate(-90deg);display:block}
+.ring-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.ring-num{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;display:block;line-height:1}
+.ring-sub{font-size:.55rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;display:block;margin-top:2px}
+.hero-info .tipo{display:inline-block;font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(201,168,76,.4);padding:.2rem .55rem;margin-bottom:.6rem}
+.hero-info h2{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;margin-bottom:.5rem}
+.hero-info .sintesi{font-size:.78rem;color:var(--muted);line-height:1.8}
+.data-bar{background:var(--surface2);border:1px solid var(--border);padding:.75rem 1.25rem;margin-bottom:1rem;font-size:.62rem;color:var(--muted);display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.dtag{background:var(--surface);border:1px solid var(--border2);padding:.15rem .5rem;font-size:.6rem}
+.dtag.yes{border-color:rgba(45,184,133,.4);color:var(--teal)}
+.dtag.no{border-color:rgba(216,79,53,.25);color:var(--coral);opacity:.6}
+.dtag.warn{border-color:rgba(212,135,14,.4);color:var(--amber)}
+.dims-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1rem}
+.dim-card{background:var(--surface);padding:1.25rem 1.5rem}
+.dim-card:nth-child(5){grid-column:span 2}
+.dim-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.85rem}
+.dim-name{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);max-width:120px;line-height:1.4}
+.dim-score-n{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700}
+.bar-bg{height:2px;background:var(--border2);margin-bottom:.85rem;overflow:hidden}
+.bar-fill{height:100%;width:0%;transition:width 1.3s cubic-bezier(.22,1,.36,1)}
+.dim-sintesi{font-size:.73rem;color:var(--text);line-height:1.65;margin-bottom:.35rem}
+.dim-gap{font-size:.68rem;color:var(--muted);line-height:1.5}
+.dim-gap::before{content:"↳ ";color:var(--coral);opacity:.8}
+.bottom-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1rem}
+.bottom-card{background:var(--surface2);padding:1.25rem 1.5rem}
+.bottom-title{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;margin-bottom:.9rem}
+.b-item{font-size:.7rem;color:var(--text);line-height:1.6;padding:.38rem 0;border-bottom:1px solid var(--border);display:flex;gap:.5rem;align-items:flex-start}
+.b-item:last-child{border-bottom:none}
+.b-icon{flex-shrink:0;font-size:.6rem;margin-top:.15rem}
+.step-item{padding:.38rem 0;border-bottom:1px solid var(--border)}
+.step-item:last-child{border-bottom:none}
+.step-p{font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.2rem}
+.step-a{font-size:.7rem;color:var(--text);line-height:1.55}
+.btn-reset{display:block;width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;padding:.9rem;cursor:pointer;transition:all .2s}
+.btn-reset:hover{border-color:var(--gold);color:var(--gold)}
+.footer{text-align:center;padding:2rem 0 0;font-size:.6rem;color:var(--dim);letter-spacing:.08em;border-top:1px solid var(--border)}
+.lang-bar{display:flex;justify-content:flex-end;margin-bottom:1rem;gap:.25rem}
+.lang-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.18em;padding:.3rem .65rem;cursor:pointer;transition:all .2s}
+.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+.lang-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.08)}
+@media(max-width:600px){
+  .score-hero{flex-direction:column;align-items:flex-start;gap:1.2rem}
+  .dims-grid{grid-template-columns:1fr}.dim-card:nth-child(5){grid-column:span 1}
+  .bottom-grid{grid-template-columns:1fr}
+  .header h1{font-size:1.9rem}
+  .input-row{flex-direction:column}.btn-analyze{width:100%}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lang-bar">
+    <button id="btnLangIT" class="lang-btn active" onclick="setLang('it')">IT</button>
+    <button id="btnLangEN" class="lang-btn" onclick="setLang('en')">EN</button>
+  </div>
+  <div class="header">
+    <span class="eyebrow">Digital Identity Assessment</span>
+    <h1 id="i18n-headline"></h1>
+    <p id="i18n-subhead"></p>
+  </div>
+
+  <div class="input-section" id="inputSection">
+    <label class="field-label" id="i18n-fieldLabel" for="urlInput"></label>
+    <div class="input-row">
+      <input type="url" id="urlInput" class="url-input" />
+      <button class="btn-analyze" id="btnAnalyze" onclick="runAnalysis()"></button>
+    </div>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div class="loading" id="loadingSection">
+    <div class="spinner" id="loadingSpinner"></div>
+    <div class="steps">
+      <div id="s1" class="step-line"></div>
+      <div id="s2" class="step-line"></div>
+      <div id="s3" class="step-line"></div>
+      <div id="s4" class="step-line"></div>
+    </div>
+    <div id="rateLimitBox" style="display:none;margin-top:1.5rem;background:rgba(212,135,14,.08);border:1px solid rgba(212,135,14,.3);padding:.9rem 1.2rem;text-align:center">
+      <div style="font-size:.6rem;letter-spacing:.2em;color:#D4870E;text-transform:uppercase;margin-bottom:.4rem">Rate limit Gemini</div>
+      <div id="rateLimitMsg" style="font-size:.78rem;color:#EDE8DF;line-height:1.7"></div>
+      <div id="rateLimitCountdown" style="font-family:'Playfair Display',serif;font-size:2rem;color:#D4870E;margin:.5rem 0"></div>
+    </div>
+  </div>
+
+  <div class="results" id="resultsSection">
+    <div id="scoreHeroWrap"></div>
+    <div id="dataBar"></div>
+    <div class="dims-grid" id="dimsGrid"></div>
+    <div class="bottom-grid" id="bottomGrid"></div>
+    <button class="btn-reset" id="i18n-btnReset" onclick="resetTool()"></button>
+  </div>
+
+  <div class="footer" id="i18n-footer"></div>
+</div>
+<script>
+// ── i18n ──────────────────────────────────────────────────────────────
+const I18N={
+  it:{
+    headline:'Chi sei<br><em>nell\'era dell\'AI?</em>',
+    subhead:'Analisi reale della struttura della tua presenza digitale — JSON-LD, meta tag, coerenza narrativa, AI-readiness — in 5 dimensioni.',
+    fieldLabel:'URL da analizzare',
+    placeholder:'https://tuosito.com',
+    btnAnalyze:'Analizza →',
+    s1:'— Recupero pagina...',s2:'— Estrazione dati strutturati...',
+    s3:'— Verifica llms.txt e robots.txt...',s4:'— Analisi AI readability...',
+    btnReset:'← Nuova analisi',
+    footer:'Digital Identity Scanner — powered by Gemini AI',
+    errNoUrl:'Inserisci un URL valido.',
+    errInvalidUrl:'URL non valido. Usa formato: sito.com',
+    errApi:'Errore API',
+    errNoJson:'JSON non trovato nella risposta — vedi Console per dettagli.',
+    promptLang:'',
+  },
+  en:{
+    headline:'Who are you<br><em>in the AI era?</em>',
+    subhead:'Real analysis of your digital presence — JSON-LD, meta tags, narrative coherence, AI-readiness — across 5 dimensions.',
+    fieldLabel:'URL to analyze',
+    placeholder:'https://yoursite.com',
+    btnAnalyze:'Analyze →',
+    s1:'— Fetching page...',s2:'— Extracting structured data...',
+    s3:'— Checking llms.txt and robots.txt...',s4:'— AI readability analysis...',
+    btnReset:'← New analysis',
+    footer:'Digital Identity Scanner — powered by Gemini AI',
+    errNoUrl:'Please enter a valid URL.',
+    errInvalidUrl:'Invalid URL. Format: site.com',
+    errApi:'API Error',
+    errNoJson:'JSON not found in response — check the Console for details.',
+    promptLang:'\n\nIMPORTANT: Respond entirely in ENGLISH. Every text field must be in English.',
+  }
+};
+let LANG='it';
+function t(k){return I18N[LANG][k]??k}
+
+function setLang(lang){
+  LANG=lang;
+  document.getElementById('btnLangIT').classList.toggle('active',lang==='it');
+  document.getElementById('btnLangEN').classList.toggle('active',lang==='en');
+  renderLang();
+}
+
+function renderLang(){
+  const ids={
+    'i18n-headline':'headline','i18n-subhead':'subhead',
+    'i18n-fieldLabel':'fieldLabel','i18n-btnReset':'btnReset','i18n-footer':'footer'
+  };
+  Object.entries(ids).forEach(([id,key])=>{
+    const el=document.getElementById(id);if(el)el.innerHTML=t(key);
+  });
+  const url=document.getElementById('urlInput');if(url)url.placeholder=t('placeholder');
+  const btn=document.getElementById('btnAnalyze');if(btn)btn.textContent=t('btnAnalyze');
+  for(let i=1;i<=4;i++){const el=document.getElementById('s'+i);if(el)el.textContent=t('s'+i);}
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  renderLang();
+  document.getElementById('urlInput').addEventListener('keydown',e=>{if(e.key==='Enter')runAnalysis()});
+})
+function showErr(m){const e=document.getElementById('errorBox');e.textContent=m;e.style.display='block'}
+function hideErr(){document.getElementById('errorBox').style.display='none'}
+function sc(s){return s>=65?'#2DB885':s>=40?'#D4870E':'#D84F35'}
+function setStep(n){
+  for(let i=1;i<=4;i++){
+    const el=document.getElementById('s'+i);if(!el)continue;el.classList.remove('active','done');
+    if(i<n)el.classList.add('done');else if(i===n)el.classList.add('active');
+  }
+}
+
+async function fetchWithTimeout(url,ms){
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),ms);
+  try{
+    const r=await fetch(url,{signal:ctrl.signal});
+    clearTimeout(tid);
+    return r;
+  }catch(e){clearTimeout(tid);throw e}
+}
+
+async function fetchPage(url){
+  // 1. Netlify Function — tenta più headers, rileva pagine-trappola
+  try{
+    const r=await fetchWithTimeout(`/.netlify/functions/fetch-page?url=${encodeURIComponent(url)}`,12000);
+    if(r.status===422){
+      // Funzione raggiunta ma solo redirect/trap trovati
+      const j=await r.json().catch(()=>({}));
+      console.warn('fetch-page: only redirect/trap pages found',j);
+      window._fetchTrapped=true;
+      return null;
+    }
+    if(r.ok){const t=await r.text();if(t.length>200){console.log('Netlify function OK');window._fetchTrapped=false;return t}}
+  }catch(e){console.warn('Netlify function failed:',e.message)}
+
+  // 2. allorigins fallback
+  try{
+    const r=await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,5000);
+    if(r.ok){const j=await r.json();if(j?.contents?.length>200){console.log('allorigins OK');return j.contents}}
+  }catch(e){console.warn('allorigins failed:',e.message)}
+
+  // 3. codetabs fallback
+  try{
+    const r=await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,5000);
+    if(r.ok){const t=await r.text();if(t.length>200){console.log('codetabs OK');return t}}
+  }catch(e){console.warn('codetabs failed:',e.message)}
+
+  console.warn('All methods failed — proceeding without page content');
+  return null;
+}
+
+function extractSignals(html,url){
+  const doc=(new DOMParser()).parseFromString(html,'text/html');
+  const g=s=>doc.querySelector(s)?.getAttribute('content')||null;
+  const ga=s=>doc.querySelector(s)?.href||null;
+  const jsonLd=[...doc.querySelectorAll('script[type="application/ld+json"]')]
+    .map(s=>{try{return JSON.parse(s.textContent)}catch{return null}}).filter(Boolean);
+  const links=[...doc.querySelectorAll('a[href]')].map(a=>a.href);
+  return {
+    url,
+    title:doc.title||null,
+    description:g('meta[name="description"]'),
+    canonical:ga('link[rel="canonical"]'),
+    ogTitle:g('meta[property="og:title"]'),
+    ogDescription:g('meta[property="og:description"]'),
+    ogType:g('meta[property="og:type"]'),
+    ogImage:g('meta[property="og:image"]'),
+    twitterCard:g('meta[name="twitter:card"]'),
+    twitterCreator:g('meta[name="twitter:creator"]'),
+    author:g('meta[name="author"]'),
+    jsonLd,
+    jsonLdTypes:(()=>{const all=jsonLd.flatMap(j=>j['@graph']||[j]);return all.map(o=>o['@type']).filter(Boolean).flat()})(),
+    hasPersonSchema:jsonLd.flatMap(j=>j['@graph']||[j]).some(o=>['Person','ProfilePage'].includes(o['@type'])),
+    hasOrgSchema:jsonLd.flatMap(j=>j['@graph']||[j]).some(o=>['Organization','LocalBusiness','NGO','Association'].includes(o['@type'])),
+    sameAs:jsonLd.flatMap(j=>j['@graph']||[j]).flatMap(o=>Array.isArray(o.sameAs)?o.sameAs:(o.sameAs?[o.sameAs]:[])),
+    hasCustomDomain:(()=>{try{return !/^(www\.)?(linkedin|facebook|instagram|twitter|x\.com|linktree|bio\.link|linktr\.ee)/i.test(new URL(url).hostname)}catch{return true}})(),
+    socials:{
+      linkedin:links.find(h=>/linkedin\.com\/(in|company)\//i.test(h))||null,
+      instagram:links.find(h=>/instagram\.com\//i.test(h))||null,
+      twitter:links.find(h=>/twitter\.com\/|x\.com\//i.test(h))||null,
+      github:links.find(h=>/github\.com\//i.test(h))||null,
+    },
+    h1s:[...doc.querySelectorAll('h1')].map(h=>h.textContent.trim()).filter(Boolean).slice(0,3),
+    bodyExcerpt:(doc.body?.textContent||'').replace(/\s+/g,' ').trim().substring(0,400),
+    platform:detectPlatform(html,jsonLd),
+    jsonLdQuality:(()=>{const p=detectPlatform(html,jsonLd);return analyzeJsonLdQuality(jsonLd,p)})(),
+  };
+}
+
+async function fetchAiFiles(baseUrl){
+  const base=new URL(baseUrl).origin;
+  const results={llmsTxt:null,robotsTxt:null,sitemapXml:false,sitemapUrl:null};
+
+  // Rileva risposte HTML non valide (redirect, pagine salvate, checkout, ecc.)
+  const isHtmlOrTrash=t=>{
+    const s=t.substring(0,400).toLowerCase().trimStart();
+    return /^<(!doctype|html|!--|saved from)/i.test(s)
+      ||/^<!--\s*saved from/i.test(s)
+      ||/<html[\s>]/i.test(s.substring(0,200));
+  };
+  const isXmlSitemap=t=>/<urlset|<sitemapindex/i.test(t.substring(0,600));
+
+  async function tryFetch(pathOrUrl){
+    const fullUrl=pathOrUrl.startsWith('http')?pathOrUrl:base+pathOrUrl;
+    // 1. diretto (spesso bloccato da CORS, ma vale la pena provare)
+    try{
+      const r=await fetchWithTimeout(fullUrl,4000);
+      if(r.ok){const t=await r.text();console.log('direct OK:',pathOrUrl.replace(base,''),t.substring(0,50));return t}
+    }catch(e){console.warn('direct failed:',pathOrUrl,e.message)}
+    // 2. Netlify proxy con ?raw=1 — nessuna logica anti-redirect
+    try{
+      const r=await fetchWithTimeout('/.netlify/functions/fetch-page?raw=1&url='+encodeURIComponent(fullUrl),6000);
+      if(r.ok){const t=await r.text();console.log('proxy OK:',pathOrUrl.replace(base,''),t.substring(0,50));return t}
+    }catch(e){console.warn('proxy failed:',pathOrUrl,e.message)}
+    return null;
+  }
+
+  // ── robots.txt ────────────────────────────────────────────────────
+  const rb=await tryFetch('/robots.txt');
+  if(rb&&!isHtmlOrTrash(rb)) results.robotsTxt=rb.substring(0,1200);
+
+  // ── llms.txt ──────────────────────────────────────────────────────
+  const ll=await tryFetch('/llms.txt');
+  if(ll&&!isHtmlOrTrash(ll)&&ll.trim().length>5) results.llmsTxt=ll.substring(0,800);
+
+  // ── sitemap: strategia multi-path ────────────────────────────────
+  // Percorsi da provare in ordine di probabilità per piattaforma
+  const sitemapPaths=[
+    '/sitemap.xml',          // generico + Shopify + PrestaShop
+    '/sitemap_index.xml',    // Yoast SEO (WordPress)
+    '/wp-sitemap.xml',       // WordPress nativo ≥ 5.5
+    '/sitemap-index.xml',    // RankMath e altri
+    '/page-sitemap.xml',     // Yoast sub-sitemap fallback
+  ];
+
+  // Prima controlla se robots.txt dichiara un URL Sitemap esplicito
+  if(results.robotsTxt){
+    const match=results.robotsTxt.match(/^Sitemap:\s*(.+)$/im);
+    if(match){
+      const declaredUrl=match[1].trim();
+      console.log('Sitemap declared in robots.txt:',declaredUrl);
+      // Metti l'URL dichiarato in cima alla lista (rimuove duplicati)
+      sitemapPaths.unshift(declaredUrl.startsWith('http')?declaredUrl:'/'+declaredUrl.replace(/^\//,''));
+    }
+  }
+
+  for(const path of sitemapPaths){
+    if(results.sitemapXml) break;
+    const sm=await tryFetch(path);
+    if(sm&&isXmlSitemap(sm)){
+      results.sitemapXml=true;
+      results.sitemapUrl=path.startsWith('http')?path:base+path;
+      console.log('Sitemap found at:',results.sitemapUrl);
+      break;
+    }
+  }
+
+  console.log('aiFiles result:',JSON.stringify({
+    robotsTxt:!!results.robotsTxt,
+    llmsTxt:!!results.llmsTxt,
+    sitemapXml:results.sitemapXml,
+    sitemapUrl:results.sitemapUrl
+  }));
+  return results;
+}
+
+
+function detectPlatform(html,jsonLd){
+  const raw=JSON.stringify(jsonLd);
+  const head=(html||'').substring(0,8000);
+  if(/cdn\.shopify\.com|shopify\.com\/s\//i.test(raw)||/Shopify\./i.test(head)||/content="Shopify"/i.test(head)) return 'shopify';
+  if(/prestashop/i.test(head)||/\"prestashop\"/i.test(raw)) return 'prestashop';
+  if(/woocommerce|woo-commerce/i.test(raw)||/woocommerce/i.test(head)) return 'woocommerce';
+  if(raw.includes('wp-')||raw.includes('wordpress')||/\/wp-content\//i.test(head)) return 'wordpress';
+  if(/squarespace\.com/i.test(raw)||/squarespace/i.test(head)) return 'squarespace';
+  if(/wixsite\.com|static\.wixstatic/i.test(raw)||/wix-code/i.test(head)) return 'wix';
+  return 'unknown';
+}
+
+function analyzeJsonLdQuality(jsonLd,platform=''){
+  if(!jsonLd||jsonLd.length===0) return {present:false,source:'nessuno',score:'assente',details:[]};
+
+  const raw=JSON.stringify(jsonLd);
+  
+  // Rilevamento plugin — ordine di priorità: Yoast → RankMath → WooCommerce → generico WP
+  const hasGraph=jsonLd.some(j=>j['@graph']);
+  const hasYoastId=raw.includes('#/schema/');
+  // RankMath: #richSnippet è la firma strutturale del @id Article
+  const hasRankMathId=raw.includes('rank-math')||raw.includes('rankmath')||raw.includes('#richSnippet');
+  const hasWordPress=raw.includes('wordpress')||raw.includes('wp-');
+
+  let source='manuale';
+  if(hasYoastId) source='Yoast SEO (automatico)';
+  else if(hasRankMathId) source='RankMath (automatico)';
+  else if(platform==='woocommerce'||(hasGraph&&hasWordPress)) source='plugin WordPress (automatico)';
+  else if(hasGraph) source='schema @graph (automatico)';
+
+  // Platform-native: Shopify e PrestaShop generano schema nativo, non tramite plugin SEO
+  if(source==='manuale'){
+    if(platform==='shopify') source='Shopify (nativo)';
+    else if(platform==='prestashop') source='PrestaShop (nativo)';
+    else if(platform==='squarespace') source='Squarespace (nativo)';
+    else if(platform==='wix') source='Wix (nativo)';
+  }
+
+  // isPlugin: true solo per plugin SEO su WordPress — non per piattaforme che generano schema nativo
+  const isPlugin=source.includes('(automatico)');
+
+  // Estrai tutti gli oggetti (anche da @graph)
+  const allObjects=jsonLd.flatMap(j=>j['@graph']||[j]);
+  const types=allObjects.map(o=>o['@type']).filter(Boolean).flat();
+  
+  // Qualità Person/Organization schema
+  const person=allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
+  const org=allObjects.find(o=>['Organization','LocalBusiness','NGO'].includes(o['@type']));
+  const mainEntity=person||org;
+  
+  let richness=0;
+  const details=[];
+  
+  if(mainEntity){
+    const props=['name','description','image','url','email','telephone','jobTitle','worksFor',
+                 'knowsAbout','alumniOf','award','affiliation','nationality','birthPlace'];
+    const present=props.filter(p=>mainEntity[p]);
+    richness=Math.round((present.length/props.length)*100);
+    details.push(`Proprietà compilate: ${present.join(', ')||'nessuna'}`);
+    
+    // sameAs quality
+    const sameAs=Array.isArray(mainEntity.sameAs)?mainEntity.sameAs:(mainEntity.sameAs?[mainEntity.sameAs]:[]);
+    const hasWikidata=sameAs.some(s=>/wikidata\.org/i.test(s));
+    const hasWikipedia=sameAs.some(s=>/wikipedia\.org/i.test(s));
+    const hasLinkedIn=sameAs.some(s=>/linkedin\.com/i.test(s));
+    const hasGoogleKG=sameAs.some(s=>/googleapis\.com|google\.com\/search/i.test(s));
+    
+    if(sameAs.length===0) details.push('sameAs: ASSENTE — entità non collegata a Knowledge Graph esterni');
+    else{
+      details.push(`sameAs: ${sameAs.length} link (${[hasWikidata?'Wikidata':'',hasWikipedia?'Wikipedia':'',hasLinkedIn?'LinkedIn':''].filter(Boolean).join(', ')||'solo social'})`);
+      if(!hasWikidata) details.push('Wikidata: MANCANTE — cruciale per AI e Knowledge Graph di Google');
+      if(!hasWikipedia&&!hasWikidata) details.push('Nessun collegamento a fonti autorevoli verificabili da AI');
+    }
+  } else {
+    details.push('Nessun schema Person o Organization trovato');
+  }
+  
+  // Plugin warning
+  if(source!=='manuale'){
+    details.push(`ATTENZIONE: JSON-LD generato da ${source} — il proprietario non controlla direttamente le informazioni semantiche`);
+  }
+  
+  return {
+    present:true,
+    source,
+    isPlugin,
+    types,
+    richness,
+    details,
+    sameAsCount:allObjects.flatMap(o=>Array.isArray(o.sameAs)?o.sameAs:(o.sameAs?[o.sameAs]:[])).length,
+    hasWikidata:JSON.stringify(allObjects).includes('wikidata.org'),
+    hasWikipedia:JSON.stringify(allObjects).includes('wikipedia.org'),
+  };
+}
+
+function computeScores(signals, aiFiles){
+  const jq=signals?.jsonLdQuality||{present:false,isPlugin:false,richness:0,hasWikidata:false,hasWikipedia:false};
+  const sameAs=signals?.sameAs||[];
+  const allObjs=(signals?.jsonLd||[]).flatMap(j=>j['@graph']||[j]);
+  const platform=signals?.platform||'unknown';
+
+  // Cerca l'entità principale — Person/Org ha precedenza su Product per siti ibridi
+  const entity=allObjs.find(o=>['Person','ProfilePage','Organization','LocalBusiness','NGO'].includes(o['@type']))
+    ||allObjs.find(o=>['Product','Store','OnlineStore'].includes(o['@type']));
+  const isProductEntity=['Product','Store','OnlineStore'].includes(entity?.['@type']);
+
+  // 1. Leggibilità AI (peso 30%)
+  let legg=0;
+  if(jq.present){
+    // Piattaforme native (Shopify, PrestaShop) non penalizzate come i plugin SEO
+    legg+=jq.isPlugin?20:(jq.source?.includes('nativo')?35:45);
+    legg+=jq.richness>60?20:jq.richness>30?10:3;
+  }
+  if(signals?.ogTitle||signals?.ogDescription) legg+=15;
+  if(signals?.description) legg+=10;
+  if(signals?.title) legg+=5;
+  if(signals?.twitterCard) legg+=5;
+
+  // 2. Grafo di Conoscenza (peso 25%)
+  let grafo=0;
+  if(jq.hasWikidata) grafo+=50;
+  if(jq.hasWikipedia) grafo+=25;
+  if(sameAs.length>0) grafo+=10;
+  if(sameAs.some(s=>/linkedin\.com/i.test(s))) grafo+=10;
+  if(sameAs.some(s=>/github\.com/i.test(s))) grafo+=5;
+  // Per e-commerce: Google Merchant Center o profilo Google Business
+  if(sameAs.some(s=>/google\.com\/maps|g\.co\//i.test(s))) grafo+=10;
+
+  // 3. Coerenza dell'Identità (peso 20%)
+  let coer=0;
+  if(signals?.hasCustomDomain) coer+=30;
+  if(signals?.canonical) coer+=15;
+  if(allObjs.some(o=>o.mainEntityOfPage||o['@type']==='ProfilePage')) coer+=25;
+  // Shopify/PrestaShop hanno sempre mainEntity implicito nella pagina prodotto
+  if(isProductEntity&&(platform==='shopify'||platform==='prestashop')) coer+=15;
+  if(sameAs.length>0) coer+=15;
+  if(signals?.h1s?.length>0&&signals?.description) coer+=15;
+
+  // 4. Politica AI (peso 15%)
+  let pol=0;
+  if(aiFiles?.llmsTxt) pol+=50;
+  if(aiFiles?.robotsTxt){
+    pol+=20;
+    const rb=(aiFiles.robotsTxt||'').toLowerCase();
+    if(!rb.includes('gptbot')&&!rb.includes('ccbot')&&!rb.includes('anthropic-ai')) pol+=15;
+  }
+  if(aiFiles?.sitemapXml) pol+=15;
+
+  // 5. Profondità dell'Entità (peso 15%) — adattata al tipo
+  let prof=0;
+  if(entity){
+    if(isProductEntity){
+      // Scoring e-commerce: proprietà di prodotto
+      if(entity.name) prof+=10;
+      if(entity.description) prof+=15;
+      if(entity.image) prof+=10;
+      if(entity.offers) prof+=20; // prezzo/disponibilità — critico per AI shopping
+      if(entity.brand) prof+=15;
+      if(entity.sku||entity.gtin||entity.mpn) prof+=15;
+      if(entity.aggregateRating) prof+=10;
+      if(entity.review) prof+=5;
+    } else {
+      // Scoring identità: Person/Organization
+      if(entity.jobTitle) prof+=15;
+      if(entity.worksFor||entity.affiliation||entity.memberOf) prof+=15;
+      if(entity.knowsAbout){
+        prof+=15;
+        const knows=Array.isArray(entity.knowsAbout)?entity.knowsAbout:[entity.knowsAbout];
+        const hasLinkedKnows=knows.some(k=>k&&(k['@id']||k.sameAs||k.identifier));
+        if(hasLinkedKnows) prof+=10;
+      }
+      if(entity.description) prof+=15;
+      if(entity.image) prof+=10;
+      if(entity.url||entity.sameAs) prof+=5;
+      if(entity.alumniOf) prof+=5;
+      if(entity.award||entity.hasCredential||entity.subjectOf) prof+=5;
+      if(entity.author||entity.subjectOf||entity.workExample) prof+=5;
+      // Proprietà org/business
+      if(entity.address||entity.telephone||entity.email) prof+=5;
+      if(entity.priceRange||entity.openingHours) prof+=5;
+    }
+  } else if((signals?.bodyExcerpt||'').length>100) prof=15;
+
+  const cap=v=>Math.min(100,Math.round(v));
+  const l=cap(legg),g=cap(grafo),c=cap(coer),p=cap(pol),pr=cap(prof);
+  const overall=Math.round(l*.30+g*.25+c*.20+p*.15+pr*.10);
+  return {overall,leggibilita:l,grafo:g,coerenza:c,politica:p,profilo:pr};
+}
+
+function normalizeUrl(raw){
+  raw=raw.trim().replace(/\s+/g,'');
+  if(!raw)return null;
+  if(/^@/.test(raw))raw=raw.substring(1);
+  if(!/^https?:\/\//i.test(raw))raw='https://'+raw;
+  try{new URL(raw);return raw}catch{return null}
+}
+
+async function runAnalysis(){
+  let url=document.getElementById('urlInput').value.trim();
+  if(!url){showErr(t('errNoUrl'));return}
+  url=normalizeUrl(url);
+  if(!url){showErr(t('errInvalidUrl'));return}
+  hideErr();
+  clearResults();
+  document.getElementById('inputSection').style.opacity='.4';
+  document.getElementById('loadingSection').style.display='block';
+  document.getElementById('resultsSection').style.display='none';
+  document.getElementById('btnAnalyze').disabled=true;
+
+  setStep(1);
+  const html=await fetchPage(url);
+
+  setStep(2);
+  const signals=html?extractSignals(html,url):null;
+
+  setStep(3);
+  let aiFiles={llmsTxt:null,robotsTxt:null,sitemapXml:false};
+  try{aiFiles=await fetchAiFiles(url)}catch{}
+
+  setStep(4);
+  const scores=computeScores(signals,aiFiles);
+  console.log('Computed scores:',JSON.stringify(scores));
+  const sysPrompt=(
+  'Sei un analista specializzato in AI readability — valuti quanto bene un\'entità digitale è comprensibile, interpretabile e citabile dai sistemi di intelligenza artificiale (LLM, motori AI, knowledge graph). Non ti occupi di SEO tradizionale. Il tuo focus: i dati sono leggibili dalle AI? L\'entità è disambiguabile? Il profilo è ricco e strutturato?\n'+
+  '\n'+
+  'CONTESTO PIATTAFORMA: il campo "platform" nel JSON dati indica la piattaforma rilevata. Adatta l\'analisi:\n'+
+  '- wordpress/woocommerce: valuta qualità plugin SEO, ricchezza JSON-LD, Knowledge Graph\n'+
+  '- shopify/prestashop: valuta schema prodotto (offers, brand, sku, aggregateRating), identità brand, sameAs verso Google Business/Merchant\n'+
+  '- squarespace/wix: valuta schema nativo spesso limitato, mancanza di controllo semantico\n'+
+  '- unknown/manuale: valuta come identità digitale professionale\n'+
+  '\n'+
+  'DIMENSIONI DA VALUTARE:\n'+
+  '\n'+
+  '1. LEGGIBILITÀ AI\n'+
+  '- JSON-LD manuale e ricco → fino a 90\n'+
+  '- JSON-LD nativo Shopify/PrestaShop → fino a 70 (strutturato ma non personalizzabile)\n'+
+  '- JSON-LD da plugin SEO (Yoast/RankMath): max 45\n'+
+  '- JSON-LD assente: max 15\n'+
+  '- Open Graph presente: +5\n'+
+  '\n'+
+  '2. GRAFO DI CONOSCENZA\n'+
+  '- sameAs → Wikidata: +30 (Knowledge Graph Google + training LLM)\n'+
+  '- sameAs → Wikipedia: +20\n'+
+  '- sameAs → LinkedIn ufficiale / VIAF / ISNI: +10\n'+
+  '- Per e-commerce: sameAs → Google Business Profile o Merchant Center: +10\n'+
+  '- Solo social generici: max 35\n'+
+  '- Assente: max 20\n'+
+  '\n'+
+  '3. COERENZA DELL\'IDENTITÀ\n'+
+  '- Dominio proprio presente?\n'+
+  '- mainEntityOfPage o ProfilePage nel JSON-LD?\n'+
+  '- canonical impostato?\n'+
+  '- Per e-commerce: coerenza tra Organization e Product schema (stesso brand/nome)\n'+
+  '- Contraddizioni nei metadati → penalizzare esplicitamente\n'+
+  '\n'+
+  '4. ACCESSIBILITÀ AI (llms.txt, robots.txt, sitemap)\n'+
+  '- llms.txt presente: segnale esplicito apertura AI\n'+
+  '- robots.txt: blocca GPTBot/CCBot? Permissivo o restrittivo?\n'+
+  '- Per Shopify: robots.txt bloccante è default — segnalarlo se rilevante\n'+
+  '- Sitemap presente: facilita indicizzazione strutturata\n'+
+  '\n'+
+  '5. PROFONDITÀ DELL\'ENTITÀ\n'+
+  '- Per persone/organizzazioni: jobTitle, worksFor, knowsAbout, alumniOf, award\n'+
+  '- Per e-commerce/prodotti: offers (prezzo/disponibilità), brand, sku/gtin, aggregateRating, review\n'+
+  '- Per organizzazioni commerciali: address, telephone, priceRange, openingHours\n'+
+  '- Specializzazione riconoscibile o entità generica?\n'+
+  '\n'+
+  'ISTRUZIONI:\n'+
+  '- "percezione_ai": 3-5 frasi in prima persona come sistema AI che analizza l\'entità. Adatta al contesto: per e-commerce descrivi prodotti/brand, per persone descrivi profilo professionale.\n'+
+  '- "tipo": scegli tra Persona / Organizzazione / Brand / E-commerce / Prodotto\n'+
+  '- SEO tradizionale: solo nota marginale nel campo sintesi\n'+
+  '- Sii critico: senza Wikidata e senza JSON-LD manuale/nativo ricco non si supera 45/100\n'+
+  '- IMPORTANTE per Accessibilità AI: se il campo "fetch_context" indica "pagina_protetta_da_redirect" o "file_non_raggiungibili", NON scrivere che i file sono "assenti". Scrivi che potrebbero esistere ma sono inaccessibili ai sistemi di crawling AI a causa di redirect o protezioni server-side. Distingui sempre tra "assente" (verificato che non esiste) e "non raggiungibile" (il server blocca o reindirizza le richieste automatizzate).\n'+
+  '\n'+
+  'Rispondi SOLO con JSON valido. NON includere campi "score":\n'+
+  '{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi in prima persona contestualizzate alla piattaforma e al tipo di entità","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"cosa funziona — specifico","gap":"cosa manca e impatto per i sistemi AI"},{"id":"grafo","nome":"Grafo di Conoscenza","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza dell\'Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profondità dell\'Entità","sintesi":"...","gap":"..."}],"forze":["forza 1","forza 2","forza 3"],"lacune":["lacuna 1","lacuna 2","lacuna 3"],"passi":[{"p":"alta","a":"azione tecnica con impatto AI"},{"p":"alta","a":"azione tecnica"},{"p":"media","a":"azione tecnica"}],"sintesi":"2-3 frasi di valutazione complessiva"}\n'+
+  t('promptLang')
+);
+
+    // Passa i punteggi calcolati a Gemini (solo per contesto, non li ricalcolerà)
+  const scoresInfo=`
+PUNTEGGI GIÀ CALCOLATI DAL CODICE (usali come riferimento, non inventarne altri):
+- Leggibilità AI: ${scores.leggibilita}/100
+- Grafo di Conoscenza: ${scores.grafo}/100
+- Coerenza Entità: ${scores.coerenza}/100
+- Politica AI: ${scores.politica}/100
+- Profondità Professionale: ${scores.profilo}/100
+- Score globale: ${scores.overall}/100`;
+
+  const fetchTrapped=window._fetchTrapped===true;
+  const aiFilesInfo=`
+FETCH CONTEXT:
+- fetch_context: ${fetchTrapped?'pagina_protetta_da_redirect — il server reindirizza le richieste automatizzate (es. checkout, geo-redirect). JSON-LD, robots.txt e sitemap potrebbero esistere ma non sono stati raggiungibili.':'pagina_recuperata_correttamente'}
+- Pagina principale recuperata: ${signals?'SÌ':'NO — analisi parziale'}
+
+FILE AI (rilevati con fetch diretto + proxy):
+- llms.txt: ${aiFiles.llmsTxt?'PRESENTE\n'+aiFiles.llmsTxt:fetchTrapped?'NON RAGGIUNGIBILE (redirect)':'ASSENTE'}
+- robots.txt: ${aiFiles.robotsTxt?'PRESENTE\n'+aiFiles.robotsTxt:fetchTrapped?'NON RAGGIUNGIBILE (redirect)':'ASSENTE'}
+- sitemap.xml: ${aiFiles.sitemapXml?'PRESENTE ('+aiFiles.sitemapUrl+')':fetchTrapped?'NON RAGGIUNGIBILE (redirect)':'ASSENTE'}`;
+
+  const userMsg=signals
+    ?`Analizza la AI readability di questa entità.
+
+URL: ${url}
+PIATTAFORMA: ${signals.platform||'unknown'}
+
+${scoresInfo}
+
+DATI STRUTTURATI ESTRATTI:
+${JSON.stringify({
+  platform:signals.platform,
+  title:signals.title,
+  description:signals.description,
+  ogTitle:signals.ogTitle,
+  ogDescription:signals.ogDescription,
+  twitterCard:signals.twitterCard,
+  canonical:signals.canonical,
+  jsonLd:signals.jsonLd,
+  jsonLdQuality:signals.jsonLdQuality,
+  h1s:signals.h1s,
+  hasCustomDomain:signals.hasCustomDomain,
+  bodyExcerpt:signals.bodyExcerpt
+},null,2)}
+
+${aiFilesInfo}`
+    :`Analizza la AI readability di questa entità: ${url}
+
+${scoresInfo}
+
+NOTA: impossibile accedere al contenuto della pagina. Non assumere che i dati manchino. Assegna score 40-50 per le dimensioni non verificabili.
+
+${aiFilesInfo}`;
+
+  // ── Chiamata Gemini con retry automatico su rate limit ────────────
+  const geminiBody=JSON.stringify({
+    system_instruction:{parts:[{text:sysPrompt}]},
+    contents:[{role:'user',parts:[{text:userMsg}]}],
+    generationConfig:{maxOutputTokens:2048,temperature:1}
+  });
+
+  async function callGemini(){
+    const res=await fetch('/.netlify/functions/gemini-analyze',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:geminiBody
+    });
+    const rawText=await res.text();
+    console.log('Gemini status:',res.status,'raw:',rawText.substring(0,400));
+    return {res,rawText};
+  }
+
+  function parseRetryDelay(rawText){
+    // Estrae i secondi dal messaggio di errore Gemini ("retry in 42.7s")
+    try{
+      const msg=JSON.parse(rawText)?.error?.message||'';
+      const m=msg.match(/retry in ([\d.]+)s/i);
+      if(m) return Math.ceil(parseFloat(m[1]))+2; // +2s di margine
+    }catch{}
+    return 60; // fallback 60s
+  }
+
+  function showRateLimit(seconds,onDone){
+    document.getElementById('loadingSpinner').style.display='none';
+    document.getElementById('rateLimitBox').style.display='block';
+    document.getElementById('rateLimitMsg').textContent=
+      'Quota free tier Gemini raggiunta. Riprovo automaticamente tra:';
+    let remaining=seconds;
+    const cd=document.getElementById('rateLimitCountdown');
+    cd.textContent=remaining+'s';
+    const iv=setInterval(()=>{
+      remaining--;
+      cd.textContent=remaining+'s';
+      if(remaining<=0){
+        clearInterval(iv);
+        document.getElementById('rateLimitBox').style.display='none';
+        document.getElementById('loadingSpinner').style.display='block';
+        onDone();
+      }
+    },1000);
+  }
+
+  try{
+    console.log('Calling gemini-analyze, lang:',LANG);
+    let {res,rawText}=await callGemini();
+
+    // Rate limit → countdown → retry una volta
+    if(res.status===429||res.status===503){
+      const delay=parseRetryDelay(rawText);
+      console.warn('Rate limited, retrying in',delay,'s');
+      await new Promise(resolve=>showRateLimit(delay,resolve));
+      ({res,rawText}=await callGemini());
+    }
+
+    if(!res.ok){
+      let msg=`${t('errApi')} ${res.status}`;
+      try{msg=JSON.parse(rawText)?.error?.message||msg}catch{}
+      throw new Error(msg);
+    }
+    const data=JSON.parse(rawText);
+    const parts=data?.candidates?.[0]?.content?.parts||[];
+    const txt=parts.filter(p=>!p.thought).map(p=>p.text||'').join('');
+    console.log('Text extracted:',txt.substring(0,500));
+    const clean=txt.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const start=clean.indexOf('{');
+    const end=clean.lastIndexOf('}');
+    if(start===-1||end===-1)throw new Error(t('errNoJson'));
+    renderResults(JSON.parse(clean.substring(start,end+1)),signals,aiFiles,scores);
+  }catch(err){
+    document.getElementById('loadingSection').style.display='none';
+    document.getElementById('inputSection').style.opacity='1';
+    document.getElementById('btnAnalyze').disabled=false;
+    showErr('Errore: '+err.message);
+  }
+}
+
+function renderResults(d,signals,aiFiles,scores){
+  // Inject computed scores — override anything Gemini might have put
+  d.score=scores.overall;
+  // scoreMap usa gli stessi id delle dimensioni
+  const scoreMap={leggibilita:scores.leggibilita,grafo:scores.grafo,coerenza:scores.coerenza,politica:scores.politica,profilo:scores.profilo};
+  if(d.dimensioni) d.dimensioni.forEach(dim=>{
+    if(scoreMap[dim.id]!==undefined) dim.score=scoreMap[dim.id];
+    // aggiorna anche il nome visualizzato
+    if(dim.id==='coerenza') dim.nome="Coerenza dell'Identità";
+    if(dim.id==='politica') dim.nome='Accessibilità AI';
+  });
+  document.getElementById('loadingSection').style.display='none';
+  document.getElementById('inputSection').style.display='none';
+  const R=40,circ=(2*Math.PI*R).toFixed(2),off=(circ-(d.score/100)*circ).toFixed(2),color=sc(d.score);
+
+  document.getElementById('scoreHeroWrap').innerHTML=`<div class="score-hero">
+    <div class="ring-wrap">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="${R}" fill="none" stroke="#1C1C30" stroke-width="6"/>
+        <circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="6"
+          stroke-dasharray="${circ}" stroke-dashoffset="${circ}" stroke-linecap="round" id="scoreRing"
+          style="transition:stroke-dashoffset 1.5s cubic-bezier(.22,1,.36,1)"/>
+      </svg>
+      <div class="ring-center">
+        <span class="ring-num" id="scoreNum" style="color:${color}">0</span>
+        <span class="ring-sub">/100</span>
+      </div>
+    </div>
+    <div class="hero-info">
+      <span class="tipo">${d.tipo}</span>
+      <h2>${d.nome}</h2>
+      <p class="sintesi">${d.sintesi}</p>
+    </div>
+  </div>`;
+
+  // percezione AI box
+  if(d.percezione_ai){
+    document.getElementById('scoreHeroWrap').insertAdjacentHTML('afterend',`
+      <div id="percezioneBox" style="background:var(--surface);border:1px solid var(--border);padding:1.25rem 1.5rem;margin-bottom:1rem">
+        <div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem">Come mi percepisce un sistema AI</div>
+        <p style="font-size:.78rem;color:var(--muted);line-height:1.8;margin:0;font-style:italic">"${d.percezione_ai}"</p>
+      </div>`);
+  }
+
+  if(signals||aiFiles){
+    const jq=signals?.jsonLdQuality;
+    const trapped=window._fetchTrapped||(!signals&&window._fetchTrapped!==false);
+    const tags=[
+      ...(trapped?[{l:'⚠ Pagina con redirect JS — dati parziali',v:false,warn:true,wide:true}]:[]),
+      {l:'JSON-LD',v:signals?.jsonLd?.length>0},
+      {l:jq?.isPlugin?`Plugin (${jq.source.split(' ')[0]})`:'Schema manuale',v:signals?.jsonLd?.length>0,warn:jq?.isPlugin},
+      {l:'sameAs',v:(signals?.sameAs?.length||0)>0},
+      {l:'Wikidata',v:jq?.hasWikidata||false},
+      {l:'Wikipedia',v:jq?.hasWikipedia||false},
+      {l:'llms.txt',v:!!aiFiles?.llmsTxt},
+      {l:'robots.txt',v:!!aiFiles?.robotsTxt},
+      {l:aiFiles?.sitemapUrl?`sitemap (${aiFiles.sitemapUrl.replace(/^https?:\/\/[^/]+/,'')})` :'sitemap',v:!!aiFiles?.sitemapXml},
+      {l:'Dominio proprio',v:signals?.hasCustomDomain??true},
+    ];
+    document.getElementById('dataBar').innerHTML=`<div class="data-bar">
+      <span style="font-size:.58rem;color:var(--dim)">Segnali AI →</span>
+      ${tags.map(t=>`<span class="dtag ${t.warn?'warn':t.v?'yes':'no'}">${t.warn?'⚠':t.v?'✓':'✗'} ${t.l}</span>`).join('')}
+    </div>`;
+  }
+
+  document.getElementById('dimsGrid').innerHTML=(d.dimensioni||[]).map(dim=>`
+    <div class="dim-card">
+      <div class="dim-top">
+        <div class="dim-name">${dim.nome}</div>
+        <div class="dim-score-n" style="color:${sc(dim.score)}">${dim.score}</div>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" data-w="${dim.score}" style="background:${sc(dim.score)}"></div></div>
+      <div class="dim-sintesi">${dim.sintesi}</div>
+      ${dim.gap?`<div class="dim-gap">${dim.gap}</div>`:''}
+    </div>`).join('');
+
+  document.getElementById('bottomGrid').innerHTML=`
+    <div class="bottom-card">
+      <div class="bottom-title" style="color:#2DB885">Punti di forza</div>
+      ${(d.forze||[]).map(f=>`<div class="b-item"><span class="b-icon" style="color:#2DB885">◆</span>${f}</div>`).join('')}
+    </div>
+    <div class="bottom-card">
+      <div class="bottom-title" style="color:#D84F35">Lacune critiche</div>
+      ${(d.lacune||[]).map(l=>`<div class="b-item"><span class="b-icon" style="color:#D84F35">◆</span>${l}</div>`).join('')}
+    </div>
+    <div class="bottom-card">
+      <div class="bottom-title" style="color:#D4870E">Prossimi passi</div>
+      ${(d.passi||[]).map(p=>`<div class="step-item">
+        <div class="step-p" style="color:${p.p==='alta'?'#D84F35':p.p==='media'?'#D4870E':'#8080A0'}">↑ ${p.p}</div>
+        <div class="step-a">${p.a}</div>
+      </div>`).join('')}
+    </div>`;
+
+  document.getElementById('resultsSection').style.display='block';
+  requestAnimationFrame(()=>setTimeout(()=>{
+    const ring=document.getElementById('scoreRing');
+    if(ring)ring.style.strokeDashoffset=off;
+    let c=0,t=d.score;
+    const iv=setInterval(()=>{c=Math.min(c+1,t);const el=document.getElementById('scoreNum');if(el)el.textContent=c;if(c>=t)clearInterval(iv)},1500/t);
+    document.querySelectorAll('.bar-fill').forEach(b=>{b.style.width=b.dataset.w+'%'});
+  },60));
+}
+
+function clearResults(){
+  // Svuota completamente tutti i contenitori di risultato
+  document.getElementById('scoreHeroWrap').innerHTML='';
+  document.getElementById('dataBar').innerHTML='';
+  document.getElementById('dimsGrid').innerHTML='';
+  document.getElementById('bottomGrid').innerHTML='';
+  // Rimuovi il box percezione_ai se esiste
+  const perc=document.getElementById('percezioneBox');
+  if(perc) perc.remove();
+}
+
+function resetTool(){
+  clearResults();
+  document.getElementById('resultsSection').style.display='none';
+  document.getElementById('inputSection').style.display='block';
+  document.getElementById('inputSection').style.opacity='1';
+  document.getElementById('btnAnalyze').disabled=false;
+  document.getElementById('urlInput').value='';
+  hideErr();
+}
+</script>
+</body>
+</html>
