@@ -5,9 +5,7 @@ const MODELS = [
   'gemini-2.5-flash',
 ];
 
-// Disabilita il thinking per risposta rapida:
-// gemini-2.5: thinkingBudget:0 | gemini-3.x: thinkingLevel:MINIMAL
-// thinkingConfig va al TOP LEVEL del payload, non dentro generationConfig
+// I modelli lite sono già veloci — nessuna configurazione thinking necessaria
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -39,10 +37,6 @@ module.exports = async (req, res) => {
       const payload = {
         ...body,
         generationConfig: body.generationConfig || {},
-        // thinkingConfig va al top level, non dentro generationConfig
-        thinkingConfig: model.startsWith('gemini-3')
-          ? { thinkingLevel: 'MINIMAL' }
-          : { thinkingBudget: 0 },
       };
 
       const response = await fetch(
