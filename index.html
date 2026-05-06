@@ -108,12 +108,23 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .lang-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.18em;padding:.3rem .65rem;cursor:pointer;transition:all .2s}
 .lang-btn:hover{border-color:var(--gold);color:var(--gold)}
 .lang-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.08)}
+.tone-row{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}
+.tone-label{font-size:.6rem;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
+.tone-btns{display:flex;gap:.35rem}
+.tone-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.1em;padding:.3rem .6rem;cursor:pointer;transition:all .2s;position:relative}
+.tone-btn:hover{border-color:var(--gold);color:var(--gold)}
+.tone-btn.active{border-color:var(--gold);color:var(--bg);background:var(--gold)}
+.tone-desc{font-size:.62rem;color:var(--dim);font-style:italic;flex:1;min-width:140px}
+.result-actions{display:flex;align-items:center;gap:1rem;margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+.btn-pdf{background:var(--gold);color:var(--bg);border:none;font-family:'DM Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.4rem;cursor:pointer;transition:background .2s;white-space:nowrap}
+.btn-pdf:hover{background:var(--gold-l)}
 @media(max-width:600px){
   .score-hero{flex-direction:column;align-items:flex-start;gap:1.2rem}
   .dims-grid{grid-template-columns:1fr}.dim-card:nth-child(5){grid-column:span 1}
   .bottom-grid{grid-template-columns:1fr}
   .header h1{font-size:1.9rem}
   .input-row{flex-direction:column}.btn-analyze{width:100%}
+  .tone-row{flex-direction:column;align-items:flex-start}
 }
 </style>
 </head>
@@ -135,6 +146,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <input type="url" id="urlInput" class="url-input" />
       <button class="btn-analyze" id="btnAnalyze" onclick="runAnalysis()"></button>
     </div>
+    <div class="tone-row">
+      <span class="tone-label" id="i18n-toneLabel"></span>
+      <div class="tone-btns">
+        <button class="tone-btn" onclick="setTone(1)">1</button>
+        <button class="tone-btn" onclick="setTone(2)">2</button>
+        <button class="tone-btn active" onclick="setTone(3)">3</button>
+        <button class="tone-btn" onclick="setTone(4)">4</button>
+        <button class="tone-btn" onclick="setTone(5)">5</button>
+      </div>
+      <span class="tone-desc" id="toneDesc"></span>
+    </div>
     <div class="error-box" id="errorBox"></div>
   </div>
 
@@ -155,7 +177,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <div class="bottom-grid" id="bottomGrid"></div>
     <div class="result-actions">
       <button class="btn-reset" id="i18n-btnReset" onclick="resetTool()"></button>
-      <button class="btn-pdf" onclick="downloadPdf()">↓ PDF</button>
+      <button class="btn-pdf" id="btnPdf" onclick="downloadPdf()"></button>
     </div>
   </div>
 
@@ -163,6 +185,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 </div>
 <script>
 // ── i18n ──────────────────────────────────────────────────────────────
+let TONE=3; // default: bilanciato
+
 const I18N={
   it:{
     headline:'Chi sei<br><em>nell\'era dell\'AI?</em>',
@@ -173,11 +197,20 @@ const I18N={
     s1:'— Recupero pagina...',s2:'— Estrazione dati strutturati...',
     s3:'— Verifica llms.txt e robots.txt...',s4:'— Analisi AI readability...',
     btnReset:'← Nuova analisi',
+    btnPdf:'↓ PDF',
     footer:'Digital Identity Scanner — powered by Gemini AI',
     errNoUrl:'Inserisci un URL valido.',
     errInvalidUrl:'URL non valido. Usa formato: sito.com',
     errApi:'Errore API',
     errNoJson:'JSON non trovato nella risposta — vedi Console per dettagli.',
+    toneLabel:'Livello di dettaglio',
+    toneLevels:[
+      'Imprenditore — solo impatto business',
+      'Manager — risultati e opportunità',
+      'Consulente — bilanciato',
+      'Sviluppatore — termini tecnici',
+      'Esperto AI — massimo dettaglio',
+    ],
     promptLang:'',
   },
   en:{
@@ -189,16 +222,31 @@ const I18N={
     s1:'— Fetching page...',s2:'— Extracting structured data...',
     s3:'— Checking llms.txt and robots.txt...',s4:'— AI readability analysis...',
     btnReset:'← New analysis',
+    btnPdf:'↓ PDF',
     footer:'Digital Identity Scanner — powered by Gemini AI',
     errNoUrl:'Please enter a valid URL.',
     errInvalidUrl:'Invalid URL. Format: site.com',
     errApi:'API Error',
     errNoJson:'JSON not found in response — check the Console for details.',
-    promptLang:'\n\nIMPORTANT: Respond entirely in ENGLISH. Every text field must be in English.',
+    toneLabel:'Detail level',
+    toneLevels:[
+      'Executive — business impact only',
+      'Manager — results and opportunities',
+      'Consultant — balanced',
+      'Developer — technical terms',
+      'AI Expert — maximum detail',
+    ],
+    promptLang:'\n\nIMPORTANT: Respond entirely in ENGLISH. Every text field, including all dimension names, strengths, gaps, steps and synthesis, must be in English.',
   }
 };
 let LANG='it';
 function t(k){return I18N[LANG][k]??k}
+
+function setTone(n){
+  TONE=n;
+  document.querySelectorAll('.tone-btn').forEach((b,i)=>b.classList.toggle('active',i+1===n));
+  document.getElementById('toneDesc').textContent=t('toneLevels')[n-1]||'';
+}
 
 function setLang(lang){
   LANG=lang;
@@ -210,14 +258,18 @@ function setLang(lang){
 function renderLang(){
   const ids={
     'i18n-headline':'headline','i18n-subhead':'subhead',
-    'i18n-fieldLabel':'fieldLabel','i18n-btnReset':'btnReset','i18n-footer':'footer'
+    'i18n-fieldLabel':'fieldLabel','i18n-btnReset':'btnReset','i18n-footer':'footer',
+    'i18n-toneLabel':'toneLabel'
   };
   Object.entries(ids).forEach(([id,key])=>{
     const el=document.getElementById(id);if(el)el.innerHTML=t(key);
   });
   const url=document.getElementById('urlInput');if(url)url.placeholder=t('placeholder');
   const btn=document.getElementById('btnAnalyze');if(btn)btn.textContent=t('btnAnalyze');
+  const pdf=document.getElementById('btnPdf');if(pdf)pdf.textContent=t('btnPdf');
   for(let i=1;i<=4;i++){const el=document.getElementById('s'+i);if(el)el.textContent=t('s'+i);}
+  // Aggiorna descrizione tono corrente
+  const desc=document.getElementById('toneDesc');if(desc)desc.textContent=t('toneLevels')[TONE-1]||'';
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
@@ -693,6 +745,17 @@ async function runAnalysis(){
   '\n'+
   'Rispondi SOLO con JSON valido. NON includere campi "score":\n'+
   '{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi come AI esterna che descrive questa entità","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"cosa funziona in linguaggio accessibile","gap":"opportunità persa — spiegata in termini di business, non tecnici"},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza dell\'Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":["punto di forza concreto 1","punto di forza 2","punto di forza 3"],"lacune":["opportunità persa 1 — in linguaggio business","opportunità persa 2","opportunità persa 3"],"passi":[{"p":"alta","a":"azione delegabile e concreta"},{"p":"alta","a":"azione delegabile"},{"p":"media","a":"azione delegabile"}],"sintesi":"2-3 frasi di valutazione complessiva accessibile"}\n'+
+  '\nLIVELLO DI DETTAGLIO TECNICO RICHIESTO: '+TONE+'/5 — '+t('toneLevels')[TONE-1]+'\n'+
+  (TONE===1?
+    'TONO 1 — IMPRENDITORE: Zero gergo tecnico. Ogni concetto deve avere un impatto di business chiaro. Usa metafore e analogie. I "prossimi passi" devono essere azioni che un CEO può capire e delegare in 10 secondi. I nomi delle dimensioni devono essere in linguaggio comune (es. "Quanto ti capisce una AI?" invece di "Leggibilità AI").\n':
+  TONE===2?
+    'TONO 2 — MANAGER: Poco gergo tecnico, sempre spiegato. Focus su risultati misurabili e opportunità concrete. Qualche termine settoriale è ok se subito contestualizzato. I prossimi passi devono avere un impatto stimabile ("questo migliora la tua visibilità su ChatGPT e Google AI").\n':
+  TONE===3?
+    'TONO 3 — CONSULENTE: Bilanciato. Usa termini tecnici quando necessario ma spiegali. Mix tra impatto business e dettagli operativi. È il tono di un consulente che parla con un cliente informato.\n':
+  TONE===4?
+    'TONO 4 — SVILUPPATORE: Linguaggio tecnico corretto. Puoi usare termini come JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap senza spiegarli. I prossimi passi devono essere azioni tecniche specifiche con riferimenti precisi (es. "aggiungi la proprietà knowsAbout al JSON-LD con @id Wikidata").\n':
+    'TONO 5 — ESPERTO AI: Massimo dettaglio tecnico. Analisi approfondita di ogni segnale. Usa tutta la terminologia specializzata: Knowledge Graph, entity disambiguation, training data, crawler directives, structured data richness. I prossimi passi devono includere implementazioni specifiche con esempi di codice o configurazione se rilevante.\n'
+  )+
   t('promptLang')
 );
 
