@@ -83,6 +83,27 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .btn-reset{display:block;width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;padding:.9rem;cursor:pointer;transition:all .2s}
 .btn-reset:hover{border-color:var(--gold);color:var(--gold)}
 .footer{text-align:center;padding:2rem 0 0;font-size:.6rem;color:var(--dim);letter-spacing:.08em;border-top:1px solid var(--border)}
+.result-actions{display:flex;align-items:center;gap:1rem;margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+.btn-pdf{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.18em;padding:.55rem 1.1rem;cursor:pointer;transition:all .2s;text-transform:uppercase}
+.btn-pdf:hover{border-color:var(--gold);color:var(--gold)}
+
+@media print{
+  body{background:#fff!important;color:#111!important}
+  .wrap{max-width:100%!important;padding:0 1.5cm!important}
+  .header,.input-section,.loading,.result-actions,.footer,.lang-bar{display:none!important}
+  .results{display:block!important}
+  .score-hero{page-break-inside:avoid}
+  .dims-grid{grid-template-columns:1fr!important}
+  .dim-card,.bottom-card{page-break-inside:avoid;border:1px solid #ccc!important;background:#fff!important;color:#111!important;margin-bottom:1rem}
+  .dim-score,.score-number{color:#b8730a!important}
+  .data-bar{display:flex!important;flex-wrap:wrap!important;gap:.3rem!important;margin-bottom:1rem}
+  .tag{border:1px solid #ccc!important;color:#111!important;background:#f5f5f5!important}
+  .tag.tag-ok{background:#e8f5e9!important;border-color:#4caf50!important}
+  .tag.tag-no{background:#fce4ec!important;border-color:#e91e63!important}
+  .score-ring circle{stroke:#b8730a!important}
+  a{color:#111!important;text-decoration:none}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
 .lang-bar{display:flex;justify-content:flex-end;margin-bottom:1rem;gap:.25rem}
 .lang-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.18em;padding:.3rem .65rem;cursor:pointer;transition:all .2s}
 .lang-btn:hover{border-color:var(--gold);color:var(--gold)}
@@ -132,7 +153,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <div id="dataBar"></div>
     <div class="dims-grid" id="dimsGrid"></div>
     <div class="bottom-grid" id="bottomGrid"></div>
-    <button class="btn-reset" id="i18n-btnReset" onclick="resetTool()"></button>
+    <div class="result-actions">
+      <button class="btn-reset" id="i18n-btnReset" onclick="resetTool()"></button>
+      <button class="btn-pdf" onclick="downloadPdf()">↓ PDF</button>
+    </div>
   </div>
 
   <div class="footer" id="i18n-footer"></div>
@@ -624,59 +648,51 @@ async function runAnalysis(){
   const scores=computeScores(signals,aiFiles);
   console.log('Computed scores:',JSON.stringify(scores));
   const sysPrompt=(
-  'Sei un analista specializzato in AI readability — valuti quanto bene un\'entità digitale è comprensibile, interpretabile e citabile dai sistemi di intelligenza artificiale (LLM, motori AI, knowledge graph). Non ti occupi di SEO tradizionale. Il tuo focus: i dati sono leggibili dalle AI? L\'entità è disambiguabile? Il profilo è ricco e strutturato?\n'+
+  'Sei un consulente di comunicazione digitale che spiega a imprenditori e manager — non a tecnici — quanto bene la loro presenza online è comprensibile dai sistemi di intelligenza artificiale. Il tuo linguaggio è chiaro, diretto, concreto. Eviti il gergo tecnico: non usi mai termini come "JSON-LD", "schema.org", "sameAs", "canonical", "crawler", "markup", "metadati", "sitemap" senza spiegarli. Quando devi menzionare un concetto tecnico, lo traduci subito in impatto di business.\n'+
   '\n'+
-  'CONTESTO PIATTAFORMA: il campo "platform" nel JSON dati indica la piattaforma rilevata. Adatta l\'analisi:\n'+
-  '- wordpress/woocommerce: valuta qualità plugin SEO, ricchezza JSON-LD, Knowledge Graph\n'+
-  '- shopify/prestashop: valuta schema prodotto (offers, brand, sku, aggregateRating), identità brand, sameAs verso Google Business/Merchant\n'+
-  '- squarespace/wix: valuta schema nativo spesso limitato, mancanza di controllo semantico\n'+
-  '- unknown/manuale: valuta come identità digitale professionale\n'+
+  'COME TRADURRE I CONCETTI TECNICI:\n'+
+  '- JSON-LD/schema assente → "il sito non ha un biglietto da visita leggibile dalle AI"\n'+
+  '- JSON-LD da plugin → "i dati sono generati automaticamente e difficili da personalizzare"\n'+
+  '- sameAs/Wikidata mancante → "nessun collegamento a fonti autorevoli — le AI non possono verificare chi sei"\n'+
+  '- llms.txt assente → "nessuna istruzione esplicita per i sistemi AI su come usare i tuoi contenuti"\n'+
+  '- robots.txt → "le istruzioni per i motori di ricerca e le AI che visitano il sito"\n'+
+  '- sitemap → "la mappa delle pagine del sito che guida i sistemi AI nella navigazione"\n'+
+  '- Knowledge Graph → "il registro globale di identità che Google e i grandi modelli AI usano per riconoscere entità reali"\n'+
+  '- crawler AI → "i sistemi automatici delle AI che leggono e imparano dai siti web"\n'+
   '\n'+
-  'DIMENSIONI DA VALUTARE:\n'+
+  'PIATTAFORMA: adatta il tono al contesto rilevato:\n'+
+  '- wordpress/woocommerce: parla di plugin, personalizzazione, visibilità organica\n'+
+  '- shopify/prestashop: parla di schede prodotto, reputazione del brand, acquisti assistiti da AI\n'+
+  '- sito personale/professionista: parla di reputazione digitale, autorevolezza, posizionamento\n'+
   '\n'+
-  '1. LEGGIBILITÀ AI\n'+
-  '- JSON-LD manuale e ricco → fino a 90\n'+
-  '- JSON-LD nativo Shopify/PrestaShop → fino a 70 (strutturato ma non personalizzabile)\n'+
-  '- JSON-LD da plugin SEO (Yoast/RankMath): max 45\n'+
-  '- JSON-LD assente: max 15\n'+
-  '- Open Graph presente: +5\n'+
+  'DIMENSIONI DA VALUTARE (con linguaggio accessibile):\n'+
   '\n'+
-  '2. GRAFO DI CONOSCENZA\n'+
-  '- sameAs → Wikidata: +30 (Knowledge Graph Google + training LLM)\n'+
-  '- sameAs → Wikipedia: +20\n'+
-  '- sameAs → LinkedIn ufficiale / VIAF / ISNI: +10\n'+
-  '- Per e-commerce: sameAs → Google Business Profile o Merchant Center: +10\n'+
-  '- Solo social generici: max 35\n'+
-  '- Assente: max 20\n'+
+  '1. LEGGIBILITÀ AI — Quanto è chiaro il tuo sito per una AI?\n'+
+  'Spiega se il sito ha dati strutturati leggibili, se sono ricchi o superficiali, se una AI riesce a capire chi sei e cosa fai solo leggendo il codice della pagina.\n'+
   '\n'+
-  '3. COERENZA DELL\'IDENTITÀ\n'+
-  '- Dominio proprio presente?\n'+
-  '- mainEntityOfPage o ProfilePage nel JSON-LD?\n'+
-  '- canonical impostato?\n'+
-  '- Per e-commerce: coerenza tra Organization e Product schema (stesso brand/nome)\n'+
-  '- Contraddizioni nei metadati → penalizzare esplicitamente\n'+
+  '2. AUTOREVOLEZZA DIGITALE — Le AI ti riconoscono come fonte affidabile?\n'+
+  'Spiega se l\'identità è collegata a fonti esterne verificabili (Wikipedia, registri ufficiali, profili autorevoli). Senza questi collegamenti, una AI non può confermare che l\'entità esiste davvero.\n'+
   '\n'+
-  '4. ACCESSIBILITÀ AI (llms.txt, robots.txt, sitemap)\n'+
-  '- llms.txt presente: segnale esplicito apertura AI\n'+
-  '- robots.txt: blocca GPTBot/CCBot? Permissivo o restrittivo?\n'+
-  '- Per Shopify: robots.txt bloccante è default — segnalarlo se rilevante\n'+
-  '- Sitemap presente: facilita indicizzazione strutturata\n'+
+  '3. COERENZA DELL\'IDENTITÀ — Il sito parla con una voce sola?\n'+
+  'Spiega se le informazioni presenti sul sito sono coerenti tra loro, se c\'è un dominio proprio, se il sito si presenta come fonte principale dell\'identità.\n'+
   '\n'+
-  '5. PROFONDITÀ DELL\'ENTITÀ\n'+
-  '- Per persone/organizzazioni: jobTitle, worksFor, knowsAbout, alumniOf, award\n'+
-  '- Per e-commerce/prodotti: offers (prezzo/disponibilità), brand, sku/gtin, aggregateRating, review\n'+
-  '- Per organizzazioni commerciali: address, telephone, priceRange, openingHours\n'+
-  '- Specializzazione riconoscibile o entità generica?\n'+
+  '4. ACCESSIBILITÀ AI — Hai preparato il sito per l\'era dell\'AI?\n'+
+  'Spiega se esistono istruzioni esplicite per i sistemi AI, se la mappa del sito è disponibile, se i motori AI possono navigarlo liberamente. Se i file non sono raggiungibili (non assenti, ma bloccati), spiegalo come un problema di accesso, non di assenza.\n'+
   '\n'+
-  'ISTRUZIONI:\n'+
-  '- "percezione_ai": scrivi 3-5 frasi in prima persona come sistema AI esterno che osserva e descrive questa entità. Usa "questa entità", "il suo profilo", "il sito", mai "il mio profilo" o "la mia identità" — stai descrivendo qualcun altro, non te stesso. Esempio corretto: "Questa entità si presenta come... Il suo profilo è strutturato in modo da... La sua expertise risulta chiaramente definita..."\n'+
+  '5. PROFILO E COMPETENZE — Quanto sei riconoscibile e specifico?\n'+
+  'Spiega se il profilo professionale o l\'offerta commerciale è abbastanza dettagliata da permettere a una AI di citarti con precisione, o se risulti generico e intercambiabile.\n'+
+  '\n'+
+  'TONO E STILE:\n'+
+  '- Parla come un consulente che vuole che il cliente capisca e agisca, non come un tecnico che vuole impressionare\n'+
+  '- Le lacune devono essere spiegate in termini di opportunità persa, non di errore tecnico\n'+
+  '- I prossimi passi devono essere formulati come azioni concrete che un imprenditore può delegare ("chiedi al tuo webmaster di...", "aggiungi al tuo sito...", "crea una pagina su...")\n'+
+  '- "percezione_ai": scrivi 3-5 frasi come se fossi una AI che descrive questa entità a un altro sistema. Usa "questa entità", "il suo profilo", mai "il mio profilo". Sii specifico su settore e posizionamento percepito.\n'+
   '- "tipo": scegli tra Persona / Organizzazione / Brand / E-commerce / Prodotto\n'+
-  '- SEO tradizionale: solo nota marginale nel campo sintesi\n'+
-  '- Sii critico: senza Wikidata e senza JSON-LD manuale/nativo ricco non si supera 45/100\n'+
-  '- IMPORTANTE per Accessibilità AI: se il campo "fetch_context" indica "pagina_protetta_da_redirect" o "file_non_raggiungibili", NON scrivere che i file sono "assenti". Scrivi che potrebbero esistere ma sono inaccessibili ai sistemi di crawling AI a causa di redirect o protezioni server-side. Distingui sempre tra "assente" (verificato che non esiste) e "non raggiungibile" (il server blocca o reindirizza le richieste automatizzate).\n'+
+  '- SEO tradizionale: non menzionarlo, non è il focus\n'+
+  '- IMPORTANTE: se un file risulta "non raggiungibile" (non 404, ma errore tecnico), non dire che è assente — di\' che esiste probabilmente ma i sistemi AI non riescono ad accedervi, e spiega perché è un problema\n'+
   '\n'+
   'Rispondi SOLO con JSON valido. NON includere campi "score":\n'+
-  '{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi in prima persona contestualizzate alla piattaforma e al tipo di entità","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"cosa funziona — specifico","gap":"cosa manca e impatto per i sistemi AI"},{"id":"grafo","nome":"Grafo di Conoscenza","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza dell\'Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profondità dell\'Entità","sintesi":"...","gap":"..."}],"forze":["forza 1","forza 2","forza 3"],"lacune":["lacuna 1","lacuna 2","lacuna 3"],"passi":[{"p":"alta","a":"azione tecnica con impatto AI"},{"p":"alta","a":"azione tecnica"},{"p":"media","a":"azione tecnica"}],"sintesi":"2-3 frasi di valutazione complessiva"}\n'+
+  '{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi come AI esterna che descrive questa entità","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"cosa funziona in linguaggio accessibile","gap":"opportunità persa — spiegata in termini di business, non tecnici"},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza dell\'Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":["punto di forza concreto 1","punto di forza 2","punto di forza 3"],"lacune":["opportunità persa 1 — in linguaggio business","opportunità persa 2","opportunità persa 3"],"passi":[{"p":"alta","a":"azione delegabile e concreta"},{"p":"alta","a":"azione delegabile"},{"p":"media","a":"azione delegabile"}],"sintesi":"2-3 frasi di valutazione complessiva accessibile"}\n'+
   t('promptLang')
 );
 
@@ -898,6 +914,16 @@ function clearResults(){
   // Rimuovi il box percezione_ai se esiste
   const perc=document.getElementById('percezioneBox');
   if(perc) perc.remove();
+}
+
+function downloadPdf(){
+  // Aggiungi meta title con URL analizzato per il nome del file
+  const url=document.getElementById('urlInput')?.value||'report';
+  const domain=url.replace(/https?:\/\//,'').replace(/\/.*/,'').replace(/[^a-z0-9.-]/gi,'_');
+  document.title='AI Readiness — '+domain;
+  window.print();
+  // Ripristina il titolo dopo la stampa
+  setTimeout(()=>{document.title='Chi sei nell\'era dell\'AI?'},1000);
 }
 
 function resetTool(){
