@@ -88,21 +88,42 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .btn-pdf:hover{border-color:var(--gold);color:var(--gold)}
 
 @media print{
-  body{background:#fff!important;color:#111!important}
-  .wrap{max-width:100%!important;padding:0 1.5cm!important}
+  @page{margin:1.2cm 1.4cm;size:A4}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body{background:#0D0D0D!important;color:#EDE8DF!important;font-size:9pt}
+  .wrap{max-width:100%!important;padding:0!important}
+  /* Nascondi tutto tranne i risultati */
   .header,.input-section,.loading,.result-actions,.footer,.lang-bar{display:none!important}
   .results{display:block!important}
-  .score-hero{page-break-inside:avoid}
-  .dims-grid{grid-template-columns:1fr!important}
-  .dim-card,.bottom-card{page-break-inside:avoid;border:1px solid #ccc!important;background:#fff!important;color:#111!important;margin-bottom:1rem}
-  .dim-score,.score-number{color:#b8730a!important}
-  .data-bar{display:flex!important;flex-wrap:wrap!important;gap:.3rem!important;margin-bottom:1rem}
-  .tag{border:1px solid #ccc!important;color:#111!important;background:#f5f5f5!important}
-  .tag.tag-ok{background:#e8f5e9!important;border-color:#4caf50!important}
-  .tag.tag-no{background:#fce4ec!important;border-color:#e91e63!important}
-  .score-ring circle{stroke:#b8730a!important}
-  a{color:#111!important;text-decoration:none}
-  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  /* Score hero */
+  .score-hero{background:#161616!important;border:1px solid #2a2a2a!important;padding:12pt 16pt!important;display:flex!important;align-items:center!important;gap:16pt!important;margin-bottom:8pt!important;page-break-inside:avoid}
+  .hero-info h2{font-size:16pt!important;color:#EDE8DF!important}
+  .hero-info .sintesi{font-size:8pt!important;color:#8A8577!important}
+  .ring-num{font-size:22pt!important;color:#C9A84C!important}
+  .ring-sub{color:#8A8577!important}
+  .hero-info .tipo{color:#C9A84C!important;border-color:rgba(201,168,76,.4)!important}
+  /* Data bar */
+  .data-bar{background:#1A1A1A!important;border:1px solid #2a2a2a!important;padding:6pt 10pt!important;margin-bottom:8pt!important;page-break-inside:avoid}
+  .dtag{border:1px solid #2a2a2a!important;background:#161616!important;color:#8A8577!important;font-size:6.5pt!important;padding:1pt 4pt!important}
+  .dtag.yes{border-color:rgba(45,184,133,.5)!important;color:#2DB885!important}
+  .dtag.no{border-color:rgba(216,79,53,.3)!important;color:#D84F35!important}
+  /* Dim grid — 2 colonne stampa */
+  .dims-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6pt!important;margin-bottom:8pt}
+  .dim-card:nth-child(5){grid-column:span 2!important}
+  .dim-card{background:#161616!important;border:1px solid #2a2a2a!important;padding:10pt!important;page-break-inside:avoid}
+  .dim-name{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
+  .dim-score{font-size:18pt!important;color:#C9A84C!important}
+  .dim-bar-fill{background:#C9A84C!important;print-color-adjust:exact}
+  .dim-text{font-size:7.5pt!important;color:#EDE8DF!important;line-height:1.6}
+  .dim-gap{font-size:7pt!important;color:#8A8577!important}
+  /* Bottom grid */
+  .bottom-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6pt!important}
+  .bottom-card{background:#161616!important;border:1px solid #2a2a2a!important;padding:10pt!important;page-break-inside:avoid}
+  .bottom-card h3{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
+  .passo-p{font-size:6pt!important}
+  .passo-p.alta{color:#C9A84C!important}
+  .passo-p.media{color:#8A8577!important}
+  a{color:#C9A84C!important;text-decoration:none}
 }
 .lang-bar{display:flex;justify-content:flex-end;margin-bottom:1rem;gap:.25rem}
 .lang-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.18em;padding:.3rem .65rem;cursor:pointer;transition:all .2s}
@@ -699,64 +720,52 @@ async function runAnalysis(){
   setStep(4);
   const scores=computeScores(signals,aiFiles);
   console.log('Computed scores:',JSON.stringify(scores));
-  const sysPrompt=(
-  'Sei un consulente di comunicazione digitale che spiega a imprenditori e manager — non a tecnici — quanto bene la loro presenza online è comprensibile dai sistemi di intelligenza artificiale. Il tuo linguaggio è chiaro, diretto, concreto. Eviti il gergo tecnico: non usi mai termini come "JSON-LD", "schema.org", "sameAs", "canonical", "crawler", "markup", "metadati", "sitemap" senza spiegarli. Quando devi menzionare un concetto tecnico, lo traduci subito in impatto di business.\n'+
-  '\n'+
-  'COME TRADURRE I CONCETTI TECNICI:\n'+
-  '- JSON-LD/schema assente → "il sito non ha un biglietto da visita leggibile dalle AI"\n'+
-  '- JSON-LD da plugin → "i dati sono generati automaticamente e difficili da personalizzare"\n'+
-  '- sameAs/Wikidata mancante → "nessun collegamento a fonti autorevoli — le AI non possono verificare chi sei"\n'+
-  '- llms.txt assente → "nessuna istruzione esplicita per i sistemi AI su come usare i tuoi contenuti"\n'+
-  '- robots.txt → "le istruzioni per i motori di ricerca e le AI che visitano il sito"\n'+
-  '- sitemap → "la mappa delle pagine del sito che guida i sistemi AI nella navigazione"\n'+
-  '- Knowledge Graph → "il registro globale di identità che Google e i grandi modelli AI usano per riconoscere entità reali"\n'+
-  '- crawler AI → "i sistemi automatici delle AI che leggono e imparano dai siti web"\n'+
-  '\n'+
-  'PIATTAFORMA: adatta il tono al contesto rilevato:\n'+
-  '- wordpress/woocommerce: parla di plugin, personalizzazione, visibilità organica\n'+
-  '- shopify/prestashop: parla di schede prodotto, reputazione del brand, acquisti assistiti da AI\n'+
-  '- sito personale/professionista: parla di reputazione digitale, autorevolezza, posizionamento\n'+
-  '\n'+
-  'DIMENSIONI DA VALUTARE (con linguaggio accessibile):\n'+
-  '\n'+
-  '1. LEGGIBILITÀ AI — Quanto è chiaro il tuo sito per una AI?\n'+
-  'Spiega se il sito ha dati strutturati leggibili, se sono ricchi o superficiali, se una AI riesce a capire chi sei e cosa fai solo leggendo il codice della pagina.\n'+
-  '\n'+
-  '2. AUTOREVOLEZZA DIGITALE — Le AI ti riconoscono come fonte affidabile?\n'+
-  'Spiega se l\'identità è collegata a fonti esterne verificabili (Wikipedia, registri ufficiali, profili autorevoli). Senza questi collegamenti, una AI non può confermare che l\'entità esiste davvero.\n'+
-  '\n'+
-  '3. COERENZA DELL\'IDENTITÀ — Il sito parla con una voce sola?\n'+
-  'Spiega se le informazioni presenti sul sito sono coerenti tra loro, se c\'è un dominio proprio, se il sito si presenta come fonte principale dell\'identità.\n'+
-  '\n'+
-  '4. ACCESSIBILITÀ AI — Hai preparato il sito per l\'era dell\'AI?\n'+
-  'Spiega se esistono istruzioni esplicite per i sistemi AI, se la mappa del sito è disponibile, se i motori AI possono navigarlo liberamente. Se i file non sono raggiungibili (non assenti, ma bloccati), spiegalo come un problema di accesso, non di assenza.\n'+
-  '\n'+
-  '5. PROFILO E COMPETENZE — Quanto sei riconoscibile e specifico?\n'+
-  'Spiega se il profilo professionale o l\'offerta commerciale è abbastanza dettagliata da permettere a una AI di citarti con precisione, o se risulti generico e intercambiabile.\n'+
-  '\n'+
-  'TONO E STILE:\n'+
-  '- Parla come un consulente che vuole che il cliente capisca e agisca, non come un tecnico che vuole impressionare\n'+
-  '- Le lacune devono essere spiegate in termini di opportunità persa, non di errore tecnico\n'+
-  '- I prossimi passi devono essere formulati come azioni concrete che un imprenditore può delegare ("chiedi al tuo webmaster di...", "aggiungi al tuo sito...", "crea una pagina su...")\n'+
-  '- "percezione_ai": scrivi 3-5 frasi come se fossi una AI che descrive questa entità a un altro sistema. Usa "questa entità", "il suo profilo", mai "il mio profilo". Sii specifico su settore e posizionamento percepito.\n'+
-  '- "tipo": scegli tra Persona / Organizzazione / Brand / E-commerce / Prodotto\n'+
-  '- SEO tradizionale: non menzionarlo, non è il focus\n'+
-  '- IMPORTANTE: se un file risulta "non raggiungibile" (non 404, ma errore tecnico), non dire che è assente — di\' che esiste probabilmente ma i sistemi AI non riescono ad accedervi, e spiega perché è un problema\n'+
-  '\n'+
-  'Rispondi SOLO con JSON valido. NON includere campi "score":\n'+
-  '{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi come AI esterna che descrive questa entità","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"cosa funziona in linguaggio accessibile","gap":"opportunità persa — spiegata in termini di business, non tecnici"},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza dell\'Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":["punto di forza concreto 1","punto di forza 2","punto di forza 3"],"lacune":["opportunità persa 1 — in linguaggio business","opportunità persa 2","opportunità persa 3"],"passi":[{"p":"alta","a":"azione delegabile e concreta"},{"p":"alta","a":"azione delegabile"},{"p":"media","a":"azione delegabile"}],"sintesi":"2-3 frasi di valutazione complessiva accessibile"}\n'+
-  '\nLIVELLO DI DETTAGLIO TECNICO RICHIESTO: '+TONE+'/5 — '+t('toneLevels')[TONE-1]+'\n'+
-  (TONE===1?
-    'TONO 1 — IMPRENDITORE: Zero gergo tecnico. Ogni concetto deve avere un impatto di business chiaro. Usa metafore e analogie. I "prossimi passi" devono essere azioni che un CEO può capire e delegare in 10 secondi. I nomi delle dimensioni devono essere in linguaggio comune (es. "Quanto ti capisce una AI?" invece di "Leggibilità AI").\n':
-  TONE===2?
-    'TONO 2 — MANAGER: Poco gergo tecnico, sempre spiegato. Focus su risultati misurabili e opportunità concrete. Qualche termine settoriale è ok se subito contestualizzato. I prossimi passi devono avere un impatto stimabile ("questo migliora la tua visibilità su ChatGPT e Google AI").\n':
-  TONE===3?
-    'TONO 3 — CONSULENTE: Bilanciato. Usa termini tecnici quando necessario ma spiegali. Mix tra impatto business e dettagli operativi. È il tono di un consulente che parla con un cliente informato.\n':
-  TONE===4?
-    'TONO 4 — SVILUPPATORE: Linguaggio tecnico corretto. Puoi usare termini come JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap senza spiegarli. I prossimi passi devono essere azioni tecniche specifiche con riferimenti precisi (es. "aggiungi la proprietà knowsAbout al JSON-LD con @id Wikidata").\n':
-    'TONO 5 — ESPERTO AI: Massimo dettaglio tecnico. Analisi approfondita di ogni segnale. Usa tutta la terminologia specializzata: Knowledge Graph, entity disambiguation, training data, crawler directives, structured data richness. I prossimi passi devono includere implementazioni specifiche con esempi di codice o configurazione se rilevante.\n'
+  // Istruzione lingua — va PRIMA di tutto il resto per dominare l'output
+  const langInstruction=LANG==='en'?
+    'CRITICAL INSTRUCTION: You must respond ENTIRELY in ENGLISH. Every single field in your JSON response — names, descriptions, strengths, gaps, steps, synthesis — must be written in English. Do not use Italian anywhere.\n\n':
+    '';
+
+  const isEN=LANG==='en';
+  const toneDescriptions={
+    1: isEN?
+      'TONE 1 — EXECUTIVE: Zero technical jargon. Every concept must have a clear business impact. Use metaphors and analogies. Next steps must be actions a CEO can understand and delegate in 10 seconds. Dimension names should use plain language (e.g., "Does AI understand you?" instead of "AI Readability").':
+      'TONO 1 — IMPRENDITORE: Zero gergo tecnico. Ogni concetto deve avere un impatto di business chiaro. Usa metafore e analogie. I "prossimi passi" devono essere azioni che un CEO può capire e delegare in 10 secondi. I nomi delle dimensioni devono essere in linguaggio comune.',
+    2: isEN?
+      'TONE 2 — MANAGER: Minimal technical jargon, always explained. Focus on measurable results and concrete opportunities. Next steps must have an estimable impact ("this improves your visibility on ChatGPT and Google AI").':
+      'TONO 2 — MANAGER: Poco gergo tecnico, sempre spiegato. Focus su risultati misurabili e opportunità concrete. I prossimi passi devono avere un impatto stimabile.',
+    3: isEN?
+      'TONE 3 — CONSULTANT: Balanced. Use technical terms when necessary but explain them. Mix of business impact and operational details.':
+      'TONO 3 — CONSULENTE: Bilanciato. Usa termini tecnici quando necessario ma spiegali. Mix tra impatto business e dettagli operativi.',
+    4: isEN?
+      'TONE 4 — DEVELOPER: Correct technical language. You can use terms like JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap without explaining them. Next steps must be specific technical actions with precise references.':
+      'TONO 4 — SVILUPPATORE: Linguaggio tecnico corretto. Puoi usare termini come JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap senza spiegarli. I prossimi passi devono essere azioni tecniche specifiche.',
+    5: isEN?
+      'TONE 5 — AI EXPERT: Maximum technical detail. Deep analysis of every signal. Use all specialized terminology: Knowledge Graph, entity disambiguation, training data, crawler directives, structured data richness. Next steps should include specific implementations with code or config examples where relevant.':
+      'TONO 5 — ESPERTO AI: Massimo dettaglio tecnico. Analisi approfondita di ogni segnale. Usa tutta la terminologia specializzata. I prossimi passi devono includere implementazioni specifiche.',
+  };
+
+  const sysPrompt=langInstruction+(
+  (isEN?
+    'You are a digital communication consultant explaining to entrepreneurs and managers — not technicians — how well their online presence is understood by AI systems. Your language is clear, direct, and concrete. Avoid technical jargon: never use terms like "JSON-LD", "schema.org", "sameAs", "canonical", "crawler", "markup", "metadata", "sitemap" without explaining them. When you must mention a technical concept, immediately translate it into business impact.\n':
+    'Sei un consulente di comunicazione digitale che spiega a imprenditori e manager — non a tecnici — quanto bene la loro presenza online è comprensibile dai sistemi di intelligenza artificiale. Il tuo linguaggio è chiaro, diretto, concreto. Eviti il gergo tecnico: non usi mai termini come "JSON-LD", "schema.org", "sameAs", "canonical", "crawler", "markup", "metadati", "sitemap" senza spiegarli.\n'
   )+
-  t('promptLang')
+  '\n'+
+  (isEN?
+    'HOW TO TRANSLATE TECHNICAL CONCEPTS:\n- No JSON-LD/schema → "the site has no readable identity card for AI"\n- Plugin-generated → "data is auto-generated and hard to customize"\n- No Wikidata → "no link to authoritative sources — AIs cannot verify who you are"\n- No llms.txt → "no explicit instructions for AI systems on how to use your content"\n- robots.txt → "instructions for search engines and AIs visiting the site"\n- sitemap → "the site map guiding AI systems through navigation"\n- Knowledge Graph → "the global identity registry Google and major AI models use to recognize real entities"\n':
+    'COME TRADURRE I CONCETTI TECNICI:\n- JSON-LD/schema assente → "il sito non ha un biglietto da visita leggibile dalle AI"\n- JSON-LD da plugin → "i dati sono generati automaticamente e difficili da personalizzare"\n- sameAs/Wikidata mancante → "nessun collegamento a fonti autorevoli — le AI non possono verificare chi sei"\n- llms.txt assente → "nessuna istruzione esplicita per i sistemi AI su come usare i tuoi contenuti"\n'
+  )+
+  '\n'+
+  (isEN?
+    'DIMENSIONS TO EVALUATE:\n1. AI READABILITY — How clear is your site for an AI?\n2. DIGITAL AUTHORITY — Do AIs recognize you as a reliable source?\n3. IDENTITY CONSISTENCY — Does the site speak with one voice?\n4. AI ACCESSIBILITY — Have you prepared the site for the AI era?\n5. PROFILE & EXPERTISE — How recognizable and specific are you?\n':
+    'DIMENSIONI DA VALUTARE:\n1. LEGGIBILITÀ AI — Quanto è chiaro il tuo sito per una AI?\n2. AUTOREVOLEZZA DIGITALE — Le AI ti riconoscono come fonte affidabile?\n3. COERENZA DELL\'IDENTITÀ — Il sito parla con una voce sola?\n4. ACCESSIBILITÀ AI — Hai preparato il sito per l\'era dell\'AI?\n5. PROFILO E COMPETENZE — Quanto sei riconoscibile e specifico?\n'
+  )+
+  '\n'+
+  (isEN?
+    'Respond ONLY with valid JSON. Do NOT include "score" fields:\n{"nome":"...","tipo":"Person|Organization|Brand|E-commerce|Product","percezione_ai":"3-5 sentences as external AI describing this entity","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"what works in accessible language","gap":"missed opportunity in business terms"},{"id":"grafo","nome":"Digital Authority","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"politica","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile & Expertise","sintesi":"...","gap":"..."}],"forze":["concrete strength 1","strength 2","strength 3"],"lacune":["missed opportunity 1","missed opportunity 2","missed opportunity 3"],"passi":[{"p":"high","a":"delegable concrete action"},{"p":"high","a":"delegable action"},{"p":"medium","a":"delegable action"}],"sintesi":"2-3 sentence overall assessment"}\n':
+    'Rispondi SOLO con JSON valido. NON includere campi "score":\n{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi come AI esterna che descrive questa entità","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"cosa funziona in linguaggio accessibile","gap":"opportunità persa — spiegata in termini di business"},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza dell\'Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":["forza 1","forza 2","forza 3"],"lacune":["lacuna 1","lacuna 2","lacuna 3"],"passi":[{"p":"alta","a":"azione delegabile"},{"p":"alta","a":"azione"},{"p":"media","a":"azione"}],"sintesi":"2-3 frasi di valutazione complessiva"}\n'
+  )+
+  '\nREQUIRED DETAIL LEVEL: '+TONE+'/5 — '+t('toneLevels')[TONE-1]+'\n'+
+  toneDescriptions[TONE]+'\n'
 );
 
     // Passa i punteggi calcolati a Gemini (solo per contesto, non li ricalcolerà)
