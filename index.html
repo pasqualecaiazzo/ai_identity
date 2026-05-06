@@ -125,11 +125,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <div id="s3" class="step-line"></div>
       <div id="s4" class="step-line"></div>
     </div>
-    <div id="rateLimitBox" style="display:none;margin-top:1.5rem;background:rgba(212,135,14,.08);border:1px solid rgba(212,135,14,.3);padding:.9rem 1.2rem;text-align:center">
-      <div style="font-size:.6rem;letter-spacing:.2em;color:#D4870E;text-transform:uppercase;margin-bottom:.4rem">Rate limit Gemini</div>
-      <div id="rateLimitMsg" style="font-size:.78rem;color:#EDE8DF;line-height:1.7"></div>
-      <div id="rateLimitCountdown" style="font-family:'Playfair Display',serif;font-size:2rem;color:#D4870E;margin:.5rem 0"></div>
-    </div>
   </div>
 
   <div class="results" id="resultsSection">
@@ -744,7 +739,7 @@ NOTA: impossibile accedere al contenuto della pagina. Non assumere che i dati ma
 
 ${aiFilesInfo}`;
 
-  // ── Chiamata Gemini con retry automatico su rate limit ────────────
+  // ── Chiamata Gemini ───────────────────────────────────────────────
   const geminiBody=JSON.stringify({
     system_instruction:{parts:[{text:sysPrompt}]},
     contents:[{role:'user',parts:[{text:userMsg}]}],
@@ -760,51 +755,18 @@ ${aiFilesInfo}`;
     return {res,rawText};
   }
 
-  function parseRetryDelay(rawText){
-    // Estrae i secondi dal messaggio di errore Gemini ("retry in 42.7s")
-    try{
-      const msg=JSON.parse(rawText)?.error?.message||'';
-      const m=msg.match(/retry in ([\d.]+)s/i);
-      if(m) return Math.ceil(parseFloat(m[1]))+2; // +2s di margine
-    }catch{}
-    return 60; // fallback 60s
-  }
-
-  function showRateLimit(seconds,onDone){
-    document.getElementById('loadingSpinner').style.display='none';
-    document.getElementById('rateLimitBox').style.display='block';
-    document.getElementById('rateLimitMsg').textContent=
-      'Quota free tier Gemini raggiunta. Riprovo automaticamente tra:';
-    let remaining=seconds;
-    const cd=document.getElementById('rateLimitCountdown');
-    cd.textContent=remaining+'s';
-    const iv=setInterval(()=>{
-      remaining--;
-      cd.textContent=remaining+'s';
-      if(remaining<=0){
-        clearInterval(iv);
-        document.getElementById('rateLimitBox').style.display='none';
-        document.getElementById('loadingSpinner').style.display='block';
-        onDone();
-      }
-    },1000);
-  }
-
   try{
     console.log('Calling gemini-analyze, lang:',LANG);
-    let {res,rawText}=await callGemini();
+    const {res,rawText}=await callGemini();
 
-    // Rate limit → countdown → retry una volta
-    if(res.status===429||res.status===503){
-      const delay=parseRetryDelay(rawText);
-      console.warn('Rate limited, retrying in',delay,'s');
-      await new Promise(resolve=>showRateLimit(delay,resolve));
-      ({res,rawText}=await callGemini());
-    }
-
+    // Il fallback tra modelli è gestito lato server in gemini-analyze.js
+    // Se arriviamo qui con 429/503, tutti i modelli sono esauriti — errore diretto
     if(!res.ok){
       let msg=`${t('errApi')} ${res.status}`;
-      try{msg=JSON.parse(rawText)?.error?.message||msg}catch{}
+      try{
+        const errMsg=JSON.parse(rawText)?.error?.message;
+        if(errMsg) msg=errMsg.split('\n')[0]; // prima riga, senza dettagli tecnici
+      }catch{}
       throw new Error(msg);
     }
     const data=JSON.parse(rawText);
