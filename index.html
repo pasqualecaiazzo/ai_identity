@@ -22,7 +22,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .header h1{font-family:'Playfair Display',serif;font-size:2.6rem;font-weight:700;line-height:1.15;margin-bottom:.75rem}
 .header h1 em{font-style:italic;color:var(--gold)}
 .header p{font-size:.78rem;color:var(--muted);line-height:1.8;max-width:460px;margin:0 auto}
-
 .key-bar{background:var(--surface);border:1px solid var(--border);padding:1rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
 .key-label{font-size:.6rem;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;flex-shrink:0}
 .input-section{background:var(--surface);border:1px solid var(--border);padding:1.5rem;margin-bottom:1rem}
@@ -84,30 +83,25 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .btn-reset:hover{border-color:var(--gold);color:var(--gold)}
 .footer{text-align:center;padding:2rem 0 0;font-size:.6rem;color:var(--dim);letter-spacing:.08em;border-top:1px solid var(--border)}
 .result-actions{display:flex;align-items:center;gap:1rem;margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
-.btn-pdf{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.18em;padding:.55rem 1.1rem;cursor:pointer;transition:all .2s;text-transform:uppercase}
-.btn-pdf:hover{border-color:var(--gold);color:var(--gold)}
-
+.btn-pdf{background:var(--gold);color:var(--bg);border:none;font-family:'DM Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.4rem;cursor:pointer;transition:background .2s;white-space:nowrap}
+.btn-pdf:hover{background:var(--gold-l)}
 @media print{
   @page{margin:1.2cm 1.4cm;size:A4}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   body{background:#0D0D0D!important;color:#EDE8DF!important;font-size:9pt}
   .wrap{max-width:100%!important;padding:0!important}
-  /* Nascondi tutto tranne i risultati */
   .header,.input-section,.loading,.result-actions,.footer,.lang-bar{display:none!important}
   .results{display:block!important}
-  /* Score hero */
   .score-hero{background:#161616!important;border:1px solid #2a2a2a!important;padding:12pt 16pt!important;display:flex!important;align-items:center!important;gap:16pt!important;margin-bottom:8pt!important;page-break-inside:avoid}
   .hero-info h2{font-size:16pt!important;color:#EDE8DF!important}
   .hero-info .sintesi{font-size:8pt!important;color:#8A8577!important}
   .ring-num{font-size:22pt!important;color:#C9A84C!important}
   .ring-sub{color:#8A8577!important}
   .hero-info .tipo{color:#C9A84C!important;border-color:rgba(201,168,76,.4)!important}
-  /* Data bar */
   .data-bar{background:#1A1A1A!important;border:1px solid #2a2a2a!important;padding:6pt 10pt!important;margin-bottom:8pt!important;page-break-inside:avoid}
   .dtag{border:1px solid #2a2a2a!important;background:#161616!important;color:#8A8577!important;font-size:6.5pt!important;padding:1pt 4pt!important}
   .dtag.yes{border-color:rgba(45,184,133,.5)!important;color:#2DB885!important}
   .dtag.no{border-color:rgba(216,79,53,.3)!important;color:#D84F35!important}
-  /* Dim grid — 2 colonne stampa */
   .dims-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6pt!important;margin-bottom:8pt}
   .dim-card:nth-child(5){grid-column:span 2!important}
   .dim-card{background:#161616!important;border:1px solid #2a2a2a!important;padding:10pt!important;page-break-inside:avoid}
@@ -116,7 +110,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   .dim-bar-fill{background:#C9A84C!important;print-color-adjust:exact}
   .dim-text{font-size:7.5pt!important;color:#EDE8DF!important;line-height:1.6}
   .dim-gap{font-size:7pt!important;color:#8A8577!important}
-  /* Bottom grid */
   .bottom-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6pt!important}
   .bottom-card{background:#161616!important;border:1px solid #2a2a2a!important;padding:10pt!important;page-break-inside:avoid}
   .bottom-card h3{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
@@ -136,9 +129,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .tone-btn:hover{border-color:var(--gold);color:var(--gold)}
 .tone-btn.active{border-color:var(--gold);color:var(--bg);background:var(--gold)}
 .tone-desc{font-size:.62rem;color:var(--dim);font-style:italic;flex:1;min-width:140px}
-.result-actions{display:flex;align-items:center;gap:1rem;margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
-.btn-pdf{background:var(--gold);color:var(--bg);border:none;font-family:'DM Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.4rem;cursor:pointer;transition:background .2s;white-space:nowrap}
-.btn-pdf:hover{background:var(--gold-l)}
 @media(max-width:600px){
   .score-hero{flex-direction:column;align-items:flex-start;gap:1.2rem}
   .dims-grid{grid-template-columns:1fr}.dim-card:nth-child(5){grid-column:span 1}
@@ -160,7 +150,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <h1 id="i18n-headline"></h1>
     <p id="i18n-subhead"></p>
   </div>
-
   <div class="input-section" id="inputSection">
     <label class="field-label" id="i18n-fieldLabel" for="urlInput"></label>
     <div class="input-row">
@@ -180,7 +169,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     </div>
     <div class="error-box" id="errorBox"></div>
   </div>
-
   <div class="loading" id="loadingSection">
     <div class="spinner" id="loadingSpinner"></div>
     <div class="steps">
@@ -190,7 +178,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <div id="s4" class="step-line"></div>
     </div>
   </div>
-
   <div class="results" id="resultsSection">
     <div id="scoreHeroWrap"></div>
     <div id="dataBar"></div>
@@ -201,12 +188,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <button class="btn-pdf" id="btnPdf" onclick="downloadPdf()"></button>
     </div>
   </div>
-
   <div class="footer" id="i18n-footer"></div>
 </div>
 <script>
-// ── i18n ──────────────────────────────────────────────────────────────
-let TONE=3; // default: bilanciato
+let TONE=3;
 
 const I18N={
   it:{
@@ -257,7 +242,7 @@ const I18N={
       'Developer — technical terms',
       'AI Expert — maximum detail',
     ],
-    promptLang:'\n\nIMPORTANT: Respond entirely in ENGLISH. Every text field, including all dimension names, strengths, gaps, steps and synthesis, must be in English.',
+    promptLang:'\n\nIMPORTANT: Respond entirely in ENGLISH. Every text field must be in English.',
   }
 };
 let LANG='it';
@@ -289,7 +274,6 @@ function renderLang(){
   const btn=document.getElementById('btnAnalyze');if(btn)btn.textContent=t('btnAnalyze');
   const pdf=document.getElementById('btnPdf');if(pdf)pdf.textContent=t('btnPdf');
   for(let i=1;i<=4;i++){const el=document.getElementById('s'+i);if(el)el.textContent=t('s'+i);}
-  // Aggiorna descrizione tono corrente
   const desc=document.getElementById('toneDesc');if(desc)desc.textContent=t('toneLevels')[TONE-1]||'';
 }
 
@@ -312,39 +296,29 @@ async function fetchWithTimeout(url,ms){
   const tid=setTimeout(()=>ctrl.abort(),ms);
   try{
     const r=await fetch(url,{signal:ctrl.signal});
-    clearTimeout(tid);
-    return r;
+    clearTimeout(tid);return r;
   }catch(e){clearTimeout(tid);throw e}
 }
 
 async function fetchPage(url){
-  // 1. Vercel API — tenta fetch con rilevamento pagine-trappola
   try{
     const r=await fetchWithTimeout(`/api/fetch-page?url=${encodeURIComponent(url)}`,12000);
     if(r.status===422){
-      // Funzione raggiunta ma solo redirect/trap trovati
       const j=await r.json().catch(()=>({}));
       console.warn('fetch-page: only redirect/trap pages found',j);
-      window._fetchTrapped=true;
-      return null;
+      window._fetchTrapped=true;return null;
     }
     if(r.ok){const t=await r.text();if(t.length>200){console.log('Vercel API OK');window._fetchTrapped=false;return t}}
   }catch(e){console.warn('Vercel API failed:',e.message)}
-
-  // 2. allorigins fallback
   try{
     const r=await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,5000);
     if(r.ok){const j=await r.json();if(j?.contents?.length>200){console.log('allorigins OK');return j.contents}}
   }catch(e){console.warn('allorigins failed:',e.message)}
-
-  // 3. codetabs fallback
   try{
     const r=await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,5000);
     if(r.ok){const t=await r.text();if(t.length>200){console.log('codetabs OK');return t}}
   }catch(e){console.warn('codetabs failed:',e.message)}
-
-  console.warn('All methods failed — proceeding without page content');
-  return null;
+  console.warn('All methods failed');return null;
 }
 
 function extractSignals(html,url){
@@ -355,16 +329,13 @@ function extractSignals(html,url){
     .map(s=>{try{return JSON.parse(s.textContent)}catch{return null}}).filter(Boolean);
   const links=[...doc.querySelectorAll('a[href]')].map(a=>a.href);
   return {
-    url,
-    title:doc.title||null,
+    url,title:doc.title||null,
     description:g('meta[name="description"]'),
     canonical:ga('link[rel="canonical"]'),
     ogTitle:g('meta[property="og:title"]'),
     ogDescription:g('meta[property="og:description"]'),
     ogType:g('meta[property="og:type"]'),
     ogImage:g('meta[property="og:image"]'),
-    twitterCard:g('meta[name="twitter:card"]'),
-    twitterCreator:g('meta[name="twitter:creator"]'),
     author:g('meta[name="author"]'),
     jsonLd,
     jsonLdTypes:(()=>{const all=jsonLd.flatMap(j=>j['@graph']||[j]);return all.map(o=>o['@type']).filter(Boolean).flat()})(),
@@ -374,8 +345,6 @@ function extractSignals(html,url){
     hasCustomDomain:(()=>{try{return !/^(www\.)?(linkedin|facebook|instagram|twitter|x\.com|linktree|bio\.link|linktr\.ee)/i.test(new URL(url).hostname)}catch{return true}})(),
     socials:{
       linkedin:links.find(h=>/linkedin\.com\/(in|company)\//i.test(h))||null,
-      instagram:links.find(h=>/instagram\.com\//i.test(h))||null,
-      twitter:links.find(h=>/twitter\.com\/|x\.com\//i.test(h))||null,
       github:links.find(h=>/github\.com\//i.test(h))||null,
     },
     h1s:[...doc.querySelectorAll('h1')].map(h=>h.textContent.trim()).filter(Boolean).slice(0,3),
@@ -388,303 +357,206 @@ function extractSignals(html,url){
 async function fetchAiFiles(baseUrl){
   const base=new URL(baseUrl).origin;
   const results={llmsTxt:null,robotsTxt:null,sitemapXml:false,sitemapUrl:null};
-
-  // Rileva risposte HTML non valide (redirect, pagine salvate, checkout, ecc.)
   const isHtmlOrTrash=t=>{
     const s=t.substring(0,400).toLowerCase().trimStart();
-    return /^<(!doctype|html|!--|saved from)/i.test(s)
-      ||/^<!--\s*saved from/i.test(s)
-      ||/<html[\s>]/i.test(s.substring(0,200));
+    return /^<(!doctype|html|!--|saved from)/i.test(s)||/^<!--\s*saved from/i.test(s)||/<html[\s>]/i.test(s.substring(0,200));
   };
   const isXmlSitemap=t=>/<urlset|<sitemapindex/i.test(t.substring(0,600));
-
-  // Ritorna {content, status} dove status = 'found' | 'absent' | 'unreachable'
   async function tryFetch(pathOrUrl){
     const fullUrl=pathOrUrl.startsWith('http')?pathOrUrl:base+pathOrUrl;
     try{
       const r=await fetchWithTimeout('/api/fetch-page?raw=1&url='+encodeURIComponent(fullUrl),8000);
-      if(r.ok){
-        const t=await r.text();
-        console.log('proxy OK:',pathOrUrl.replace(base,''),t.substring(0,50));
-        return {content:t,status:'found'};
-      }
-      // 404 = assente verificato; altri codici = problema tecnico
+      if(r.ok){const t=await r.text();console.log('proxy OK:',pathOrUrl.replace(base,''),t.substring(0,50));return{content:t,status:'found'};}
       const status=r.status===404?'absent':'unreachable';
-      console.log(`proxy ${r.status} (${status}):`,pathOrUrl.replace(base,''));
-      return {content:null,status};
-    }catch(e){
-      // Timeout o errore di rete = non raggiungibile
-      console.warn('proxy unreachable:',pathOrUrl,e.message);
-      return {content:null,status:'unreachable'};
-    }
+      return{content:null,status};
+    }catch(e){return{content:null,status:'unreachable'};}
   }
-
-  // ── robots.txt ────────────────────────────────────────────────────
   const rb=await tryFetch('/robots.txt');
-  if(rb.status==='found'&&rb.content&&!isHtmlOrTrash(rb.content)){
-    results.robotsTxt=rb.content.substring(0,1200);
-  } else if(rb.status==='unreachable'){
-    results.robotsTxtStatus='unreachable';
-  }
-
-  // ── llms.txt ──────────────────────────────────────────────────────
+  if(rb.status==='found'&&rb.content&&!isHtmlOrTrash(rb.content)){results.robotsTxt=rb.content.substring(0,1200);}
+  else if(rb.status==='unreachable'){results.robotsTxtStatus='unreachable';}
   const ll=await tryFetch('/llms.txt');
-  if(ll.status==='found'&&ll.content&&!isHtmlOrTrash(ll.content)&&ll.content.trim().length>5){
-    results.llmsTxt=ll.content.substring(0,800);
-  } else if(ll.status==='unreachable'){
-    results.llmsTxtStatus='unreachable';
-  }
-
-  // ── sitemap: strategia multi-path ────────────────────────────────
-  const sitemapPaths=[
-    '/sitemap.xml',
-    '/sitemap_index.xml',
-    '/wp-sitemap.xml',
-    '/sitemap-index.xml',
-    '/page-sitemap.xml',
-  ];
-
+  if(ll.status==='found'&&ll.content&&!isHtmlOrTrash(ll.content)&&ll.content.trim().length>5){results.llmsTxt=ll.content.substring(0,800);}
+  else if(ll.status==='unreachable'){results.llmsTxtStatus='unreachable';}
+  const sitemapPaths=['/sitemap.xml','/sitemap_index.xml','/wp-sitemap.xml','/sitemap-index.xml','/page-sitemap.xml'];
   if(results.robotsTxt){
     const match=results.robotsTxt.match(/^Sitemap:\s*(.+)$/im);
-    if(match){
-      const declaredUrl=match[1].trim();
-      console.log('Sitemap declared in robots.txt:',declaredUrl);
-      sitemapPaths.unshift(declaredUrl.startsWith('http')?declaredUrl:'/'+declaredUrl.replace(/^\//,''));
-    }
+    if(match){const d=match[1].trim();sitemapPaths.unshift(d.startsWith('http')?d:'/'+d.replace(/^\//,''));}
   }
-
-  let sitemapAllUnreachable=true;
-  let sitemapTriedCount=0;
+  let sitemapAllUnreachable=true,sitemapTriedCount=0;
   for(const path of sitemapPaths){
-    if(results.sitemapXml) break;
-    const sm=await tryFetch(path);
-    sitemapTriedCount++;
-    if(sm.status==='found'&&sm.content&&isXmlSitemap(sm.content)){
-      results.sitemapXml=true;
-      results.sitemapUrl=path.startsWith('http')?path:base+path;
-      sitemapAllUnreachable=false;
-      console.log('Sitemap found at:',results.sitemapUrl);
-      break;
-    }
-    if(sm.status==='absent') sitemapAllUnreachable=false; // almeno uno risponde
+    if(results.sitemapXml)break;
+    const sm=await tryFetch(path);sitemapTriedCount++;
+    if(sm.status==='found'&&sm.content&&isXmlSitemap(sm.content)){results.sitemapXml=true;results.sitemapUrl=path.startsWith('http')?path:base+path;sitemapAllUnreachable=false;break;}
+    if(sm.status==='absent')sitemapAllUnreachable=false;
   }
-  // Se tutti i path hanno dato errore tecnico (mai 404) → non raggiungibile
-  if(!results.sitemapXml&&sitemapAllUnreachable&&sitemapTriedCount>0){
-    results.sitemapStatus='unreachable';
-  }
-
-  console.log('aiFiles result:',JSON.stringify({
-    robotsTxt:!!results.robotsTxt, robotsTxtStatus:results.robotsTxtStatus||'ok',
-    llmsTxt:!!results.llmsTxt, llmsTxtStatus:results.llmsTxtStatus||'ok',
-    sitemapXml:results.sitemapXml, sitemapStatus:results.sitemapStatus||'ok',
-    sitemapUrl:results.sitemapUrl
-  }));
+  if(!results.sitemapXml&&sitemapAllUnreachable&&sitemapTriedCount>0){results.sitemapStatus='unreachable';}
   return results;
 }
 
-
 function detectPlatform(html,jsonLd){
-  const raw=JSON.stringify(jsonLd);
-  const head=(html||'').substring(0,8000);
-  if(/cdn\.shopify\.com|shopify\.com\/s\//i.test(raw)||/Shopify\./i.test(head)||/content="Shopify"/i.test(head)) return 'shopify';
-  if(/prestashop/i.test(head)||/\"prestashop\"/i.test(raw)) return 'prestashop';
-  if(/woocommerce|woo-commerce/i.test(raw)||/woocommerce/i.test(head)) return 'woocommerce';
-  if(raw.includes('wp-')||raw.includes('wordpress')||/\/wp-content\//i.test(head)) return 'wordpress';
-  if(/squarespace\.com/i.test(raw)||/squarespace/i.test(head)) return 'squarespace';
-  if(/wixsite\.com|static\.wixstatic/i.test(raw)||/wix-code/i.test(head)) return 'wix';
-  return 'unknown';
+  const raw=JSON.stringify(jsonLd);const head=(html||'').substring(0,8000);
+  if(/cdn\.shopify\.com|shopify\.com\/s\//i.test(raw)||/Shopify\./i.test(head))return'shopify';
+  if(/prestashop/i.test(head)||/\"prestashop\"/i.test(raw))return'prestashop';
+  if(/woocommerce|woo-commerce/i.test(raw)||/woocommerce/i.test(head))return'woocommerce';
+  if(raw.includes('wp-')||raw.includes('wordpress')||/\/wp-content\//i.test(head))return'wordpress';
+  if(/squarespace\.com/i.test(raw)||/squarespace/i.test(head))return'squarespace';
+  if(/wixsite\.com|static\.wixstatic/i.test(raw)||/wix-code/i.test(head))return'wix';
+  return'unknown';
 }
 
 function analyzeJsonLdQuality(jsonLd,platform=''){
-  if(!jsonLd||jsonLd.length===0) return {present:false,source:'nessuno',score:'assente',details:[]};
-
+  if(!jsonLd||jsonLd.length===0)return{present:false,source:'nessuno',score:'assente',details:[]};
   const raw=JSON.stringify(jsonLd);
-  
-  // Rilevamento plugin — ordine di priorità: Yoast → RankMath → WooCommerce → generico WP
   const hasGraph=jsonLd.some(j=>j['@graph']);
   const hasYoastId=raw.includes('#/schema/');
-  // RankMath: #richSnippet è la firma strutturale del @id Article
   const hasRankMathId=raw.includes('rank-math')||raw.includes('rankmath')||raw.includes('#richSnippet');
   const hasWordPress=raw.includes('wordpress')||raw.includes('wp-');
-
   let source='manuale';
-  if(hasYoastId) source='Yoast SEO (automatico)';
-  else if(hasRankMathId) source='RankMath (automatico)';
-  else if(platform==='woocommerce'||(hasGraph&&hasWordPress)) source='plugin WordPress (automatico)';
-  else if(hasGraph) source='schema @graph (automatico)';
-
-  // Platform-native: Shopify e PrestaShop generano schema nativo, non tramite plugin SEO
+  if(hasYoastId)source='Yoast SEO (automatico)';
+  else if(hasRankMathId)source='RankMath (automatico)';
+  else if(platform==='woocommerce'||(hasGraph&&hasWordPress))source='plugin WordPress (automatico)';
+  else if(hasGraph)source='schema @graph (automatico)';
   if(source==='manuale'){
-    if(platform==='shopify') source='Shopify (nativo)';
-    else if(platform==='prestashop') source='PrestaShop (nativo)';
-    else if(platform==='squarespace') source='Squarespace (nativo)';
-    else if(platform==='wix') source='Wix (nativo)';
+    if(platform==='shopify')source='Shopify (nativo)';
+    else if(platform==='prestashop')source='PrestaShop (nativo)';
+    else if(platform==='squarespace')source='Squarespace (nativo)';
+    else if(platform==='wix')source='Wix (nativo)';
   }
-
-  // isPlugin: true solo per plugin SEO su WordPress — non per piattaforme che generano schema nativo
   const isPlugin=source.includes('(automatico)');
-
-  // Estrai tutti gli oggetti (anche da @graph)
   const allObjects=jsonLd.flatMap(j=>j['@graph']||[j]);
-  const types=allObjects.map(o=>o['@type']).filter(Boolean).flat();
-  
-  // Qualità Person/Organization schema
   const person=allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
   const org=allObjects.find(o=>['Organization','LocalBusiness','NGO'].includes(o['@type']));
   const mainEntity=person||org;
-  
-  let richness=0;
-  const details=[];
-  
+  let richness=0;const details=[];
   if(mainEntity){
-    const props=['name','description','image','url','email','telephone','jobTitle','worksFor',
-                 'knowsAbout','alumniOf','award','affiliation','nationality','birthPlace'];
+    // UPDATED: proprietà rilevanti per AI identity — include credenziali, identità verificabile, AI readiness
+    const props=[
+      'name','description','image','jobTitle','worksFor','knowsAbout',
+      'affiliation','memberOf','nationality','hasCredential','hasOccupation',
+      'homeLocation','vatID','contactPoint','publishingPrinciples','sameAs',
+      'alumniOf','award','subjectOf','url'
+    ];
     const present=props.filter(p=>mainEntity[p]);
     richness=Math.round((present.length/props.length)*100);
     details.push(`Proprietà compilate: ${present.join(', ')||'nessuna'}`);
-    
-    // sameAs quality
     const sameAs=Array.isArray(mainEntity.sameAs)?mainEntity.sameAs:(mainEntity.sameAs?[mainEntity.sameAs]:[]);
     const hasWikidata=sameAs.some(s=>/wikidata\.org/i.test(s));
     const hasWikipedia=sameAs.some(s=>/wikipedia\.org/i.test(s));
     const hasLinkedIn=sameAs.some(s=>/linkedin\.com/i.test(s));
-    const hasGoogleKG=sameAs.some(s=>/googleapis\.com|google\.com\/search/i.test(s));
-    
-    if(sameAs.length===0) details.push('sameAs: ASSENTE — entità non collegata a Knowledge Graph esterni');
+    if(sameAs.length===0)details.push('sameAs: ASSENTE — entità non collegata a Knowledge Graph esterni');
     else{
       details.push(`sameAs: ${sameAs.length} link (${[hasWikidata?'Wikidata':'',hasWikipedia?'Wikipedia':'',hasLinkedIn?'LinkedIn':''].filter(Boolean).join(', ')||'solo social'})`);
-      if(!hasWikidata) details.push('Wikidata: MANCANTE — cruciale per AI e Knowledge Graph di Google');
-      if(!hasWikipedia&&!hasWikidata) details.push('Nessun collegamento a fonti autorevoli verificabili da AI');
+      if(!hasWikidata)details.push('Wikidata: MANCANTE — cruciale per AI e Knowledge Graph di Google');
     }
-  } else {
-    details.push('Nessun schema Person o Organization trovato');
-  }
-  
-  // Plugin warning
-  if(source!=='manuale'){
-    details.push(`ATTENZIONE: JSON-LD generato da ${source} — il proprietario non controlla direttamente le informazioni semantiche`);
-  }
-  
-  return {
-    present:true,
-    source,
-    isPlugin,
-    types,
-    richness,
-    details,
+  }else{details.push('Nessun schema Person o Organization trovato');}
+  if(source!=='manuale'){details.push(`ATTENZIONE: JSON-LD generato da ${source} — il proprietario non controlla direttamente le informazioni semantiche`);}
+  return{
+    present:true,source,isPlugin,
+    types:allObjects.map(o=>o['@type']).filter(Boolean).flat(),
+    richness,details,
     sameAsCount:allObjects.flatMap(o=>Array.isArray(o.sameAs)?o.sameAs:(o.sameAs?[o.sameAs]:[])).length,
     hasWikidata:JSON.stringify(allObjects).includes('wikidata.org'),
     hasWikipedia:JSON.stringify(allObjects).includes('wikipedia.org'),
   };
 }
 
-function computeScores(signals, aiFiles){
+function computeScores(signals,aiFiles){
   const jq=signals?.jsonLdQuality||{present:false,isPlugin:false,richness:0,hasWikidata:false,hasWikipedia:false};
   const sameAs=signals?.sameAs||[];
   const allObjs=(signals?.jsonLd||[]).flatMap(j=>j['@graph']||[j]);
   const platform=signals?.platform||'unknown';
-
-  // Cerca l'entità principale — Person/Org ha precedenza su Product per siti ibridi
   const entity=allObjs.find(o=>['Person','ProfilePage','Organization','LocalBusiness','NGO'].includes(o['@type']))
     ||allObjs.find(o=>['Product','Store','OnlineStore'].includes(o['@type']));
   const isProductEntity=['Product','Store','OnlineStore'].includes(entity?.['@type']);
 
-  // 1. Leggibilità AI (peso 30%)
+  // 1. Leggibilità AI (30%) — quanto il sito è comprensibile dai sistemi AI
   let legg=0;
   if(jq.present){
-    // Piattaforme native (Shopify, PrestaShop) non penalizzate come i plugin SEO
     legg+=jq.isPlugin?20:(jq.source?.includes('nativo')?35:45);
     legg+=jq.richness>60?20:jq.richness>30?10:3;
+    // publishingPrinciples nel JSON-LD = istruzione esplicita per i sistemi AI
+    if(allObjs.some(o=>o.publishingPrinciples))legg+=15;
   }
-  if(signals?.ogTitle||signals?.ogDescription) legg+=15;
-  if(signals?.description) legg+=10;
-  if(signals?.title) legg+=5;
-  if(signals?.twitterCard) legg+=5;
+  if(signals?.ogTitle||signals?.ogDescription)legg+=10;
+  if(signals?.description)legg+=10;
+  if(signals?.title)legg+=5;
+  // Rimosso: twitterCard — non rilevante per AI identity
 
-  // 2. Grafo di Conoscenza (peso 25%)
+  // 2. Grafo di Conoscenza (25%) — entità verificabile nei knowledge graph
   let grafo=0;
-  if(jq.hasWikidata) grafo+=50;
-  if(jq.hasWikipedia) grafo+=25;
-  if(sameAs.length>0) grafo+=10;
-  if(sameAs.some(s=>/linkedin\.com/i.test(s))) grafo+=10;
-  if(sameAs.some(s=>/github\.com/i.test(s))) grafo+=5;
-  // Per e-commerce: Google Merchant Center o profilo Google Business
-  if(sameAs.some(s=>/google\.com\/maps|g\.co\//i.test(s))) grafo+=10;
+  if(jq.hasWikidata)grafo+=50;
+  if(jq.hasWikipedia)grafo+=25;
+  if(sameAs.length>0)grafo+=10;
+  if(sameAs.some(s=>/linkedin\.com/i.test(s)))grafo+=10;
+  if(sameAs.some(s=>/github\.com/i.test(s)))grafo+=5;
+  // Credenziali verificabili con URL = segnale di entità reale
+  if(allObjs.some(o=>o.hasCredential))grafo+=5;
+  // Rimosso: Google Maps CID (rilevante solo per local business)
 
-  // 3. Coerenza dell'Identità (peso 20%)
+  // 3. Coerenza Identità (20%) — unicità e verificabilità dell'entità
   let coer=0;
-  if(signals?.hasCustomDomain) coer+=30;
-  if(signals?.canonical) coer+=15;
-  if(allObjs.some(o=>o.mainEntityOfPage||o['@type']==='ProfilePage')) coer+=25;
-  // Shopify/PrestaShop hanno sempre mainEntity implicito nella pagina prodotto
-  if(isProductEntity&&(platform==='shopify'||platform==='prestashop')) coer+=15;
-  if(sameAs.length>0) coer+=15;
-  if(signals?.h1s?.length>0&&signals?.description) coer+=15;
+  if(signals?.hasCustomDomain)coer+=25;
+  if(signals?.canonical)coer+=15;
+  if(allObjs.some(o=>o.mainEntityOfPage||o['@type']==='ProfilePage'))coer+=20;
+  if(sameAs.length>0)coer+=15;
+  if(signals?.h1s?.length>0&&signals?.description)coer+=10;
+  // vatID = entità legale verificabile dallo Stato
+  if(allObjs.some(o=>o.vatID))coer+=15;
+  if(isProductEntity&&(platform==='shopify'||platform==='prestashop'))coer+=15;
 
-  // 4. Politica AI (peso 15%)
-  // Presente=pieno punteggio, Non raggiungibile=penalità quasi uguale ad assente
-  // (se i crawler AI non ci arrivano, è comunque un problema di accessibilità)
+  // 4. Politica AI (15%) — preparazione esplicita per i crawler AI
   let pol=0;
   const fileStatus=(file,statusKey)=>{
-    if(file) return 'found';
-    if(aiFiles?.[statusKey]==='unreachable') return 'unreachable';
-    return 'absent';
+    if(file)return'found';
+    if(aiFiles?.[statusKey]==='unreachable')return'unreachable';
+    return'absent';
   };
   const llmsStatus=fileStatus(aiFiles?.llmsTxt,'llmsTxtStatus');
   const robotsStatus=fileStatus(aiFiles?.robotsTxt,'robotsTxtStatus');
   const sitemapStatus=aiFiles?.sitemapXml?'found':(aiFiles?.sitemapStatus==='unreachable'?'unreachable':'absent');
-
-  if(llmsStatus==='found') pol+=50;
-  else if(llmsStatus==='unreachable') pol+=5; // esiste forse, ma inaccessibile ai crawler
-
+  if(llmsStatus==='found')pol+=55;
+  else if(llmsStatus==='unreachable')pol+=5;
   if(robotsStatus==='found'){
     pol+=20;
     const rb=(aiFiles.robotsTxt||'').toLowerCase();
-    if(!rb.includes('gptbot')&&!rb.includes('ccbot')&&!rb.includes('anthropic-ai')) pol+=15;
-  } else if(robotsStatus==='unreachable') pol+=3;
+    if(!rb.includes('gptbot')&&!rb.includes('ccbot')&&!rb.includes('anthropic-ai'))pol+=15;
+  }else if(robotsStatus==='unreachable')pol+=3;
+  if(sitemapStatus==='found')pol+=10;
+  else if(sitemapStatus==='unreachable')pol+=2;
 
-  if(sitemapStatus==='found') pol+=15;
-  else if(sitemapStatus==='unreachable') pol+=2;
-
-  // 5. Profondità dell'Entità (peso 15%) — adattata al tipo
+  // 5. Profondità Entità (10%) — specificità e completezza del profilo
   let prof=0;
   if(entity){
     if(isProductEntity){
-      // Scoring e-commerce: proprietà di prodotto
-      if(entity.name) prof+=10;
-      if(entity.description) prof+=15;
-      if(entity.image) prof+=10;
-      if(entity.offers) prof+=20; // prezzo/disponibilità — critico per AI shopping
-      if(entity.brand) prof+=15;
-      if(entity.sku||entity.gtin||entity.mpn) prof+=15;
-      if(entity.aggregateRating) prof+=10;
-      if(entity.review) prof+=5;
-    } else {
-      // Scoring identità: Person/Organization
-      if(entity.jobTitle) prof+=15;
-      if(entity.worksFor||entity.affiliation||entity.memberOf) prof+=15;
+      if(entity.name)prof+=10;if(entity.description)prof+=15;if(entity.image)prof+=10;
+      if(entity.offers)prof+=20;if(entity.brand)prof+=15;
+      if(entity.sku||entity.gtin||entity.mpn)prof+=15;
+      if(entity.aggregateRating)prof+=10;if(entity.review)prof+=5;
+    }else{
+      if(entity.jobTitle)prof+=10;
+      if(entity.worksFor||entity.affiliation||entity.memberOf)prof+=10;
       if(entity.knowsAbout){
         prof+=15;
         const knows=Array.isArray(entity.knowsAbout)?entity.knowsAbout:[entity.knowsAbout];
-        const hasLinkedKnows=knows.some(k=>k&&(k['@id']||k.sameAs||k.identifier));
-        if(hasLinkedKnows) prof+=10;
+        if(knows.some(k=>k&&(k['@id']||k.sameAs||k.identifier)))prof+=10;
       }
-      if(entity.description) prof+=15;
-      if(entity.image) prof+=10;
-      if(entity.url||entity.sameAs) prof+=5;
-      if(entity.alumniOf) prof+=5;
-      if(entity.award||entity.hasCredential||entity.subjectOf) prof+=5;
-      if(entity.author||entity.subjectOf||entity.workExample) prof+=5;
-      // Proprietà org/business
-      if(entity.address||entity.telephone||entity.email) prof+=5;
-      if(entity.priceRange||entity.openingHours) prof+=5;
+      if(entity.description)prof+=10;
+      if(entity.image)prof+=10;
+      if(entity.hasCredential)prof+=10;   // credenziali verificabili
+      if(entity.hasOccupation)prof+=5;    // occupazione tipizzata
+      if(entity.vatID)prof+=5;            // identità fiscale verificabile
+      if(entity.homeLocation)prof+=3;     // localizzazione dichiarata
+      if(entity.url||entity.sameAs)prof+=5;
+      if(entity.alumniOf)prof+=3;
+      if(entity.award||entity.subjectOf)prof+=5;
+      if(entity.address||entity.telephone||entity.email)prof+=3;
     }
-  } else if((signals?.bodyExcerpt||'').length>100) prof=15;
+  }else if((signals?.bodyExcerpt||'').length>100)prof=15;
 
   const cap=v=>Math.min(100,Math.round(v));
   const l=cap(legg),g=cap(grafo),c=cap(coer),p=cap(pol),pr=cap(prof);
   const overall=Math.round(l*.30+g*.25+c*.20+p*.15+pr*.10);
-  return {overall,leggibilita:l,grafo:g,coerenza:c,politica:p,profilo:pr};
+  return{overall,leggibilita:l,grafo:g,coerenza:c,politica:p,profilo:pr};
 }
 
 function normalizeUrl(raw){
@@ -700,77 +572,70 @@ async function runAnalysis(){
   if(!url){showErr(t('errNoUrl'));return}
   url=normalizeUrl(url);
   if(!url){showErr(t('errInvalidUrl'));return}
-  hideErr();
-  clearResults();
+  hideErr();clearResults();
   document.getElementById('inputSection').style.opacity='.4';
   document.getElementById('loadingSection').style.display='block';
   document.getElementById('resultsSection').style.display='none';
   document.getElementById('btnAnalyze').disabled=true;
 
-  setStep(1);
-  const html=await fetchPage(url);
-
-  setStep(2);
-  const signals=html?extractSignals(html,url):null;
-
-  setStep(3);
-  let aiFiles={llmsTxt:null,robotsTxt:null,sitemapXml:false};
+  setStep(1);const html=await fetchPage(url);
+  setStep(2);const signals=html?extractSignals(html,url):null;
+  setStep(3);let aiFiles={llmsTxt:null,robotsTxt:null,sitemapXml:false};
   try{aiFiles=await fetchAiFiles(url)}catch{}
-
-  setStep(4);
-  const scores=computeScores(signals,aiFiles);
+  setStep(4);const scores=computeScores(signals,aiFiles);
   console.log('Computed scores:',JSON.stringify(scores));
-  // Istruzione lingua — va PRIMA di tutto il resto per dominare l'output
+
   const langInstruction=LANG==='en'?
-    'CRITICAL INSTRUCTION: You must respond ENTIRELY in ENGLISH. Every single field in your JSON response — names, descriptions, strengths, gaps, steps, synthesis — must be written in English. Do not use Italian anywhere.\n\n':
-    '';
+    'CRITICAL INSTRUCTION: You must respond ENTIRELY in ENGLISH. Every single field in your JSON response must be written in English. Do not use Italian anywhere.\n\n':'';
 
   const isEN=LANG==='en';
+
+  // CONSTRAINT SCHEMA.ORG — applicato a tutti i toni
+  const schemaConstraint=isEN?
+    `CRITICAL RULE — VALID SCHEMA.ORG PROPERTIES ONLY:
+When suggesting structured data improvements in any "gap" or "passi" field, you must ONLY reference Schema.org properties that exist in the official vocabulary at schema.org. Never invent property names.
+Valid Person properties: name, givenName, familyName, jobTitle, description, image, url, sameAs, @id, nationality, knowsAbout, knowsLanguage, hasOccupation, hasCredential, affiliation, memberOf, worksFor, alumniOf, address, contactPoint, homeLocation, workLocation, email, telephone, vatID, mainEntityOfPage, subjectOf, publishingPrinciples, award, identifier, additionalType
+Valid Organization properties: name, legalName, description, url, image, logo, sameAs, @id, vatID, taxID, leiCode, foundingDate, foundingLocation, address, contactPoint, areaServed, member, memberOf, employee, founder, alumni, award, publishingPrinciples, nonprofitStatus, mainEntityOfPage, subjectOf, knowsAbout, brand, funder, numberOfEmployees
+NON-EXISTENT properties that must NEVER be suggested: dataUsagePolicy, consumerRights, aiPolicy, aiReadabilityPolicy, dataGovernance, privacyPolicy (on Person), semanticLayer, or any other invented term not listed above. If you want to suggest AI data policy improvements, the correct property is publishingPrinciples pointing to a llms.txt file.\n\n`
+    :
+    `REGOLA CRITICA — SOLO PROPRIETÀ SCHEMA.ORG VALIDE:
+Quando suggerisci miglioramenti ai dati strutturati nei campi "gap" o "passi", usa ESCLUSIVAMENTE proprietà Schema.org che esistono nel vocabolario ufficiale su schema.org. Non inventare nomi di proprietà.
+Proprietà valide Person: name, givenName, familyName, jobTitle, description, image, url, sameAs, @id, nationality, knowsAbout, knowsLanguage, hasOccupation, hasCredential, affiliation, memberOf, worksFor, alumniOf, address, contactPoint, homeLocation, workLocation, email, telephone, vatID, mainEntityOfPage, subjectOf, publishingPrinciples, award, identifier, additionalType
+Proprietà valide Organization: name, legalName, description, url, image, logo, sameAs, @id, vatID, taxID, leiCode, foundingDate, foundingLocation, address, contactPoint, areaServed, member, memberOf, employee, founder, alumni, award, publishingPrinciples, nonprofitStatus, mainEntityOfPage, subjectOf, knowsAbout, brand, funder, numberOfEmployees
+Proprietà INESISTENTI che non devono MAI essere suggerite: dataUsagePolicy, consumerRights, aiPolicy, aiReadabilityPolicy, dataGovernance, semanticLayer, o qualsiasi termine non presente nelle liste sopra. Per suggerire miglioramenti sulla politica AI, la proprietà corretta è publishingPrinciples che punta a un file llms.txt.\n\n`;
+
   const toneDescriptions={
-    1: isEN?
-      'TONE 1 — EXECUTIVE: Zero technical jargon. Every concept must have a clear business impact. Use metaphors and analogies. Next steps must be actions a CEO can understand and delegate in 10 seconds. Dimension names should use plain language (e.g., "Does AI understand you?" instead of "AI Readability").':
-      'TONO 1 — IMPRENDITORE: Zero gergo tecnico. Ogni concetto deve avere un impatto di business chiaro. Usa metafore e analogie. I "prossimi passi" devono essere azioni che un CEO può capire e delegare in 10 secondi. I nomi delle dimensioni devono essere in linguaggio comune.',
-    2: isEN?
-      'TONE 2 — MANAGER: Minimal technical jargon, always explained. Focus on measurable results and concrete opportunities. Next steps must have an estimable impact ("this improves your visibility on ChatGPT and Google AI").':
-      'TONO 2 — MANAGER: Poco gergo tecnico, sempre spiegato. Focus su risultati misurabili e opportunità concrete. I prossimi passi devono avere un impatto stimabile.',
-    3: isEN?
-      'TONE 3 — CONSULTANT: Balanced. Use technical terms when necessary but explain them. Mix of business impact and operational details.':
+    1:isEN?'TONE 1 — EXECUTIVE: Zero technical jargon. Every concept must have a clear business impact. Use metaphors and analogies. Next steps must be actions a CEO can understand and delegate in 10 seconds.':
+      'TONO 1 — IMPRENDITORE: Zero gergo tecnico. Ogni concetto deve avere un impatto di business chiaro. Usa metafore e analogie. I prossimi passi devono essere azioni che un CEO può capire e delegare in 10 secondi.',
+    2:isEN?'TONE 2 — MANAGER: Minimal technical jargon, always explained. Focus on measurable results and concrete opportunities.':
+      'TONO 2 — MANAGER: Poco gergo tecnico, sempre spiegato. Focus su risultati misurabili e opportunità concrete.',
+    3:isEN?'TONE 3 — CONSULTANT: Balanced. Use technical terms when necessary but explain them. Mix of business impact and operational details.':
       'TONO 3 — CONSULENTE: Bilanciato. Usa termini tecnici quando necessario ma spiegali. Mix tra impatto business e dettagli operativi.',
-    4: isEN?
-      'TONE 4 — DEVELOPER: Correct technical language. You can use terms like JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap without explaining them. Next steps must be specific technical actions with precise references.':
+    4:isEN?'TONE 4 — DEVELOPER: Correct technical language. You can use terms like JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap without explaining them. Next steps must be specific technical actions.':
       'TONO 4 — SVILUPPATORE: Linguaggio tecnico corretto. Puoi usare termini come JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap senza spiegarli. I prossimi passi devono essere azioni tecniche specifiche.',
-    5: isEN?
-      'TONE 5 — AI EXPERT: Maximum technical detail. Deep analysis of every signal. Use all specialized terminology: Knowledge Graph, entity disambiguation, training data, crawler directives, structured data richness. Next steps should include specific implementations with code or config examples where relevant.':
-      'TONO 5 — ESPERTO AI: Massimo dettaglio tecnico. Analisi approfondita di ogni segnale. Usa tutta la terminologia specializzata. I prossimi passi devono includere implementazioni specifiche.',
+    5:isEN?'TONE 5 — AI EXPERT: Maximum technical detail. Deep analysis of every signal. Use all specialized terminology: Knowledge Graph, entity disambiguation, training data, crawler directives, structured data richness.':
+      'TONO 5 — ESPERTO AI: Massimo dettaglio tecnico. Analisi approfondita di ogni segnale. Usa tutta la terminologia specializzata: Knowledge Graph, entity disambiguation, training data, crawler directives.',
   };
 
-  const sysPrompt=langInstruction+(
-  (isEN?
-    'You are a digital communication consultant explaining to entrepreneurs and managers — not technicians — how well their online presence is understood by AI systems. Your language is clear, direct, and concrete. Avoid technical jargon: never use terms like "JSON-LD", "schema.org", "sameAs", "canonical", "crawler", "markup", "metadata", "sitemap" without explaining them. When you must mention a technical concept, immediately translate it into business impact.\n':
-    'Sei un consulente di comunicazione digitale che spiega a imprenditori e manager — non a tecnici — quanto bene la loro presenza online è comprensibile dai sistemi di intelligenza artificiale. Il tuo linguaggio è chiaro, diretto, concreto. Eviti il gergo tecnico: non usi mai termini come "JSON-LD", "schema.org", "sameAs", "canonical", "crawler", "markup", "metadati", "sitemap" senza spiegarli.\n'
-  )+
-  '\n'+
-  (isEN?
-    'HOW TO TRANSLATE TECHNICAL CONCEPTS:\n- No JSON-LD/schema → "the site has no readable identity card for AI"\n- Plugin-generated → "data is auto-generated and hard to customize"\n- No Wikidata → "no link to authoritative sources — AIs cannot verify who you are"\n- No llms.txt → "no explicit instructions for AI systems on how to use your content"\n- robots.txt → "instructions for search engines and AIs visiting the site"\n- sitemap → "the site map guiding AI systems through navigation"\n- Knowledge Graph → "the global identity registry Google and major AI models use to recognize real entities"\n':
-    'COME TRADURRE I CONCETTI TECNICI:\n- JSON-LD/schema assente → "il sito non ha un biglietto da visita leggibile dalle AI"\n- JSON-LD da plugin → "i dati sono generati automaticamente e difficili da personalizzare"\n- sameAs/Wikidata mancante → "nessun collegamento a fonti autorevoli — le AI non possono verificare chi sei"\n- llms.txt assente → "nessuna istruzione esplicita per i sistemi AI su come usare i tuoi contenuti"\n'
-  )+
-  '\n'+
-  (isEN?
-    'DIMENSIONS TO EVALUATE:\n1. AI READABILITY — How clear is your site for an AI?\n2. DIGITAL AUTHORITY — Do AIs recognize you as a reliable source?\n3. IDENTITY CONSISTENCY — Does the site speak with one voice?\n4. AI ACCESSIBILITY — Have you prepared the site for the AI era?\n5. PROFILE & EXPERTISE — How recognizable and specific are you?\n':
-    'DIMENSIONI DA VALUTARE:\n1. LEGGIBILITÀ AI — Quanto è chiaro il tuo sito per una AI?\n2. AUTOREVOLEZZA DIGITALE — Le AI ti riconoscono come fonte affidabile?\n3. COERENZA DELL\'IDENTITÀ — Il sito parla con una voce sola?\n4. ACCESSIBILITÀ AI — Hai preparato il sito per l\'era dell\'AI?\n5. PROFILO E COMPETENZE — Quanto sei riconoscibile e specifico?\n'
-  )+
-  '\n'+
-  (isEN?
-    'Respond ONLY with valid JSON. Do NOT include "score" fields:\n{"nome":"...","tipo":"Person|Organization|Brand|E-commerce|Product","percezione_ai":"3-5 sentences as external AI describing this entity","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"what works in accessible language","gap":"missed opportunity in business terms"},{"id":"grafo","nome":"Digital Authority","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"politica","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile & Expertise","sintesi":"...","gap":"..."}],"forze":["concrete strength 1","strength 2","strength 3"],"lacune":["missed opportunity 1","missed opportunity 2","missed opportunity 3"],"passi":[{"p":"high","a":"delegable concrete action"},{"p":"high","a":"delegable action"},{"p":"medium","a":"delegable action"}],"sintesi":"2-3 sentence overall assessment"}\n':
-    'Rispondi SOLO con JSON valido. NON includere campi "score":\n{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi come AI esterna che descrive questa entità","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"cosa funziona in linguaggio accessibile","gap":"opportunità persa — spiegata in termini di business"},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza dell\'Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":["forza 1","forza 2","forza 3"],"lacune":["lacuna 1","lacuna 2","lacuna 3"],"passi":[{"p":"alta","a":"azione delegabile"},{"p":"alta","a":"azione"},{"p":"media","a":"azione"}],"sintesi":"2-3 frasi di valutazione complessiva"}\n'
-  )+
-  '\nREQUIRED DETAIL LEVEL: '+TONE+'/5 — '+t('toneLevels')[TONE-1]+'\n'+
-  toneDescriptions[TONE]+'\n'
-);
+  const sysPrompt=langInstruction+schemaConstraint+(
+    (isEN?
+      'You are a digital communication consultant explaining to entrepreneurs and managers how well their online presence is understood by AI systems. Your language is clear, direct, and concrete.\n\nHOW TO TRANSLATE TECHNICAL CONCEPTS:\n- No JSON-LD/schema → "the site has no readable identity card for AI"\n- Plugin-generated → "data is auto-generated and hard to customize"\n- No Wikidata → "no link to authoritative sources — AIs cannot verify who you are"\n- No llms.txt → "no explicit instructions for AI systems on how to use your content"\n':
+      'Sei un consulente di comunicazione digitale che spiega a imprenditori e manager quanto bene la loro presenza online è comprensibile dai sistemi di intelligenza artificiale. Il tuo linguaggio è chiaro, diretto, concreto.\n\nCOME TRADURRE I CONCETTI TECNICI:\n- JSON-LD/schema assente → "il sito non ha un biglietto da visita leggibile dalle AI"\n- JSON-LD da plugin → "i dati sono generati automaticamente e difficili da personalizzare"\n- sameAs/Wikidata mancante → "nessun collegamento a fonti autorevoli — le AI non possono verificare chi sei"\n- llms.txt assente → "nessuna istruzione esplicita per i sistemi AI su come usare i tuoi contenuti"\n'
+    )+'\n'+
+    (isEN?
+      'DIMENSIONS TO EVALUATE:\n1. AI READABILITY — How clear is your site for an AI?\n2. DIGITAL AUTHORITY — Do AIs recognize you as a reliable source?\n3. IDENTITY CONSISTENCY — Does the site speak with one voice?\n4. AI ACCESSIBILITY — Have you prepared the site for the AI era?\n5. PROFILE & EXPERTISE — How recognizable and specific are you?\n':
+      'DIMENSIONI DA VALUTARE:\n1. LEGGIBILITÀ AI — Quanto è chiaro il tuo sito per una AI?\n2. AUTOREVOLEZZA DIGITALE — Le AI ti riconoscono come fonte affidabile?\n3. COERENZA DELL\'IDENTITÀ — Il sito parla con una voce sola?\n4. ACCESSIBILITÀ AI — Hai preparato il sito per l\'era dell\'AI?\n5. PROFILO E COMPETENZE — Quanto sei riconoscibile e specifico?\n'
+    )+'\n'+
+    (isEN?
+      'Respond ONLY with valid JSON. Do NOT include "score" fields:\n{"nome":"...","tipo":"Person|Organization|Brand|E-commerce|Product","percezione_ai":"3-5 sentences as external AI describing this entity","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"what works in accessible language","gap":"missed opportunity in business terms"},{"id":"grafo","nome":"Digital Authority","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"politica","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile & Expertise","sintesi":"...","gap":"..."}],"forze":["concrete strength 1","strength 2","strength 3"],"lacune":["missed opportunity 1","missed opportunity 2","missed opportunity 3"],"passi":[{"p":"high","a":"delegable concrete action"},{"p":"high","a":"delegable action"},{"p":"medium","a":"delegable action"}],"sintesi":"2-3 sentence overall assessment"}\n':
+      'Rispondi SOLO con JSON valido. NON includere campi "score":\n{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi come AI esterna che descrive questa entità","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"cosa funziona in linguaggio accessibile","gap":"opportunità persa in termini di business"},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza dell\'Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":["forza 1","forza 2","forza 3"],"lacune":["lacuna 1","lacuna 2","lacuna 3"],"passi":[{"p":"alta","a":"azione delegabile"},{"p":"alta","a":"azione"},{"p":"media","a":"azione"}],"sintesi":"2-3 frasi di valutazione complessiva"}\n'
+    )+
+    '\nREQUIRED DETAIL LEVEL: '+TONE+'/5 — '+t('toneLevels')[TONE-1]+'\n'+
+    toneDescriptions[TONE]+'\n'
+  );
 
-    // Passa i punteggi calcolati a Gemini (solo per contesto, non li ricalcolerà)
   const scoresInfo=`
-PUNTEGGI GIÀ CALCOLATI DAL CODICE (usali come riferimento, non inventarne altri):
+PUNTEGGI CALCOLATI DAL CODICE (non ricalcolare, non inventarne altri):
 - Leggibilità AI: ${scores.leggibilita}/100
 - Grafo di Conoscenza: ${scores.grafo}/100
 - Coerenza Entità: ${scores.coerenza}/100
@@ -779,91 +644,45 @@ PUNTEGGI GIÀ CALCOLATI DAL CODICE (usali come riferimento, non inventarne altri
 - Score globale: ${scores.overall}/100`;
 
   const fetchTrapped=window._fetchTrapped===true;
-  const llmsStatus=aiFiles.llmsTxt?'PRESENTE':(aiFiles.llmsTxtStatus==='unreachable'?'NON RAGGIUNGIBILE (errore tecnico — potrebbe esistere ma i crawler AI non ci arrivano)':'ASSENTE (404 verificato)');
-  const robotsStatus=aiFiles.robotsTxt?'PRESENTE':(aiFiles.robotsTxtStatus==='unreachable'?'NON RAGGIUNGIBILE (errore tecnico)':'ASSENTE (404 verificato)');
-  const smStatus=aiFiles.sitemapXml?`PRESENTE (${aiFiles.sitemapUrl})`:(aiFiles.sitemapStatus==='unreachable'?'NON RAGGIUNGIBILE (errore tecnico — il server non risponde ai crawler automatizzati)':'ASSENTE (404 verificato su tutti i path standard)');
+  const llmsStatus=aiFiles.llmsTxt?'PRESENTE':(aiFiles.llmsTxtStatus==='unreachable'?'NON RAGGIUNGIBILE':'ASSENTE (404 verificato)');
+  const robotsStatus=aiFiles.robotsTxt?'PRESENTE':(aiFiles.robotsTxtStatus==='unreachable'?'NON RAGGIUNGIBILE':'ASSENTE (404 verificato)');
+  const smStatus=aiFiles.sitemapXml?`PRESENTE (${aiFiles.sitemapUrl})`:(aiFiles.sitemapStatus==='unreachable'?'NON RAGGIUNGIBILE':'ASSENTE (404 verificato su tutti i path standard)');
+
   const aiFilesInfo=`
 FETCH CONTEXT:
-- fetch_context: ${fetchTrapped?'pagina_protetta_da_redirect — il server reindirizza le richieste automatizzate. JSON-LD, robots.txt e sitemap potrebbero esistere ma non sono stati raggiungibili.':'pagina_recuperata_correttamente'}
+- fetch_context: ${fetchTrapped?'pagina_protetta_da_redirect':'pagina_recuperata_correttamente'}
 - Pagina principale recuperata: ${signals?'SÌ':'NO — analisi parziale'}
 
-FILE AI (ogni file: PRESENTE / ASSENTE verificato 404 / NON RAGGIUNGIBILE per errore tecnico):
+FILE AI:
 - llms.txt: ${llmsStatus}${aiFiles.llmsTxt?'\n'+aiFiles.llmsTxt:''}
 - robots.txt: ${robotsStatus}${aiFiles.robotsTxt?'\n'+aiFiles.robotsTxt:''}
-- sitemap: ${smStatus}
-
-NOTA PER L'ANALISI: "NON RAGGIUNGIBILE" significa che il file potrebbe esistere ma i sistemi di crawling automatizzato (inclusi i crawler AI) non riescono ad accedervi. Questo è un segnale negativo per l'accessibilità AI quasi quanto l'assenza — se un crawler AI non può leggere robots.txt o sitemap, non può navigare correttamente il sito. Distingui chiaramente nei tuoi commenti tra assenza verificata e inaccessibilità tecnica.`;
+- sitemap: ${smStatus}`;
 
   const userMsg=signals
-    ?`Analizza la AI readability di questa entità.
+    ?`Analizza la AI readability di questa entità.\n\nURL: ${url}\nPIATTAFORMA: ${signals.platform||'unknown'}\n\n${scoresInfo}\n\nDATI STRUTTURATI ESTRATTI:\n${JSON.stringify({platform:signals.platform,title:signals.title,description:signals.description,ogTitle:signals.ogTitle,ogDescription:signals.ogDescription,canonical:signals.canonical,jsonLd:signals.jsonLd,jsonLdQuality:signals.jsonLdQuality,h1s:signals.h1s,hasCustomDomain:signals.hasCustomDomain,bodyExcerpt:signals.bodyExcerpt},null,2)}\n\n${aiFilesInfo}`
+    :`Analizza la AI readability di questa entità: ${url}\n\n${scoresInfo}\n\nNOTA: impossibile accedere al contenuto della pagina. Assegna score 40-50 per le dimensioni non verificabili.\n\n${aiFilesInfo}`;
 
-URL: ${url}
-PIATTAFORMA: ${signals.platform||'unknown'}
-
-${scoresInfo}
-
-DATI STRUTTURATI ESTRATTI:
-${JSON.stringify({
-  platform:signals.platform,
-  title:signals.title,
-  description:signals.description,
-  ogTitle:signals.ogTitle,
-  ogDescription:signals.ogDescription,
-  twitterCard:signals.twitterCard,
-  canonical:signals.canonical,
-  jsonLd:signals.jsonLd,
-  jsonLdQuality:signals.jsonLdQuality,
-  h1s:signals.h1s,
-  hasCustomDomain:signals.hasCustomDomain,
-  bodyExcerpt:signals.bodyExcerpt
-},null,2)}
-
-${aiFilesInfo}`
-    :`Analizza la AI readability di questa entità: ${url}
-
-${scoresInfo}
-
-NOTA: impossibile accedere al contenuto della pagina. Non assumere che i dati manchino. Assegna score 40-50 per le dimensioni non verificabili.
-
-${aiFilesInfo}`;
-
-  // ── Chiamata Gemini ───────────────────────────────────────────────
   const geminiBody=JSON.stringify({
     system_instruction:{parts:[{text:sysPrompt}]},
     contents:[{role:'user',parts:[{text:userMsg}]}],
-    generationConfig:{maxOutputTokens:2048,temperature:1}
+    generationConfig:{maxOutputTokens:2048,temperature:0.3}
   });
 
-  async function callGemini(){
-    const res=await fetch('/api/gemini-analyze',{
-      method:'POST',headers:{'Content-Type':'application/json'},body:geminiBody
-    });
+  try{
+    console.log('Calling gemini-analyze, lang:',LANG,'tone:',TONE);
+    const res=await fetch('/api/gemini-analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:geminiBody});
     const rawText=await res.text();
     console.log('Gemini status:',res.status,'raw:',rawText.substring(0,400));
-    return {res,rawText};
-  }
-
-  try{
-    console.log('Calling gemini-analyze, lang:',LANG);
-    const {res,rawText}=await callGemini();
-
-    // Il fallback tra modelli è gestito lato server in gemini-analyze.js
-    // Se arriviamo qui con 429/503, tutti i modelli sono esauriti — errore diretto
     if(!res.ok){
       let msg=`${t('errApi')} ${res.status}`;
-      try{
-        const errMsg=JSON.parse(rawText)?.error?.message;
-        if(errMsg) msg=errMsg.split('\n')[0]; // prima riga, senza dettagli tecnici
-      }catch{}
+      try{const errMsg=JSON.parse(rawText)?.error?.message;if(errMsg)msg=errMsg.split('\n')[0];}catch{}
       throw new Error(msg);
     }
     const data=JSON.parse(rawText);
     const parts=data?.candidates?.[0]?.content?.parts||[];
     const txt=parts.filter(p=>!p.thought).map(p=>p.text||'').join('');
-    console.log('Text extracted:',txt.substring(0,500));
     const clean=txt.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
-    const start=clean.indexOf('{');
-    const end=clean.lastIndexOf('}');
+    const start=clean.indexOf('{');const end=clean.lastIndexOf('}');
     if(start===-1||end===-1)throw new Error(t('errNoJson'));
     renderResults(JSON.parse(clean.substring(start,end+1)),signals,aiFiles,scores);
   }catch(err){
@@ -875,15 +694,12 @@ ${aiFilesInfo}`;
 }
 
 function renderResults(d,signals,aiFiles,scores){
-  // Inject computed scores — override anything Gemini might have put
   d.score=scores.overall;
-  // scoreMap usa gli stessi id delle dimensioni
   const scoreMap={leggibilita:scores.leggibilita,grafo:scores.grafo,coerenza:scores.coerenza,politica:scores.politica,profilo:scores.profilo};
-  if(d.dimensioni) d.dimensioni.forEach(dim=>{
-    if(scoreMap[dim.id]!==undefined) dim.score=scoreMap[dim.id];
-    // aggiorna anche il nome visualizzato
-    if(dim.id==='coerenza') dim.nome="Coerenza dell'Identità";
-    if(dim.id==='politica') dim.nome='Accessibilità AI';
+  if(d.dimensioni)d.dimensioni.forEach(dim=>{
+    if(scoreMap[dim.id]!==undefined)dim.score=scoreMap[dim.id];
+    if(dim.id==='coerenza')dim.nome="Coerenza dell'Identità";
+    if(dim.id==='politica')dim.nome='Accessibilità AI';
   });
   document.getElementById('loadingSection').style.display='none';
   document.getElementById('inputSection').style.display='none';
@@ -909,7 +725,6 @@ function renderResults(d,signals,aiFiles,scores){
     </div>
   </div>`;
 
-  // percezione AI box
   if(d.percezione_ai){
     document.getElementById('scoreHeroWrap').insertAdjacentHTML('afterend',`
       <div id="percezioneBox" style="background:var(--surface);border:1px solid var(--border);padding:1.25rem 1.5rem;margin-bottom:1rem">
@@ -922,7 +737,7 @@ function renderResults(d,signals,aiFiles,scores){
     const jq=signals?.jsonLdQuality;
     const trapped=window._fetchTrapped||(!signals&&window._fetchTrapped!==false);
     const tags=[
-      ...(trapped?[{l:'⚠ Pagina con redirect JS — dati parziali',v:false,warn:true,wide:true}]:[]),
+      ...(trapped?[{l:'⚠ Pagina con redirect JS — dati parziali',v:false,warn:true}]:[]),
       {l:'JSON-LD',v:signals?.jsonLd?.length>0},
       {l:jq?.isPlugin?`Plugin (${jq.source.split(' ')[0]})`:'Schema manuale',v:signals?.jsonLd?.length>0,warn:jq?.isPlugin},
       {l:'sameAs',v:(signals?.sameAs?.length||0)>0},
@@ -962,7 +777,7 @@ function renderResults(d,signals,aiFiles,scores){
     <div class="bottom-card">
       <div class="bottom-title" style="color:#D4870E">Prossimi passi</div>
       ${(d.passi||[]).map(p=>`<div class="step-item">
-        <div class="step-p" style="color:${p.p==='alta'?'#D84F35':p.p==='media'?'#D4870E':'#8080A0'}">↑ ${p.p}</div>
+        <div class="step-p" style="color:${p.p==='alta'||p.p==='high'?'#D84F35':p.p==='media'||p.p==='medium'?'#D4870E':'#8080A0'}">↑ ${p.p}</div>
         <div class="step-a">${p.a}</div>
       </div>`).join('')}
     </div>`;
@@ -971,30 +786,25 @@ function renderResults(d,signals,aiFiles,scores){
   requestAnimationFrame(()=>setTimeout(()=>{
     const ring=document.getElementById('scoreRing');
     if(ring)ring.style.strokeDashoffset=off;
-    let c=0,t=d.score;
-    const iv=setInterval(()=>{c=Math.min(c+1,t);const el=document.getElementById('scoreNum');if(el)el.textContent=c;if(c>=t)clearInterval(iv)},1500/t);
+    let c=0,tot=d.score;
+    const iv=setInterval(()=>{c=Math.min(c+1,tot);const el=document.getElementById('scoreNum');if(el)el.textContent=c;if(c>=tot)clearInterval(iv)},1500/tot);
     document.querySelectorAll('.bar-fill').forEach(b=>{b.style.width=b.dataset.w+'%'});
   },60));
 }
 
 function clearResults(){
-  // Svuota completamente tutti i contenitori di risultato
   document.getElementById('scoreHeroWrap').innerHTML='';
   document.getElementById('dataBar').innerHTML='';
   document.getElementById('dimsGrid').innerHTML='';
   document.getElementById('bottomGrid').innerHTML='';
-  // Rimuovi il box percezione_ai se esiste
-  const perc=document.getElementById('percezioneBox');
-  if(perc) perc.remove();
+  const perc=document.getElementById('percezioneBox');if(perc)perc.remove();
 }
 
 function downloadPdf(){
-  // Aggiungi meta title con URL analizzato per il nome del file
   const url=document.getElementById('urlInput')?.value||'report';
   const domain=url.replace(/https?:\/\//,'').replace(/\/.*/,'').replace(/[^a-z0-9.-]/gi,'_');
   document.title='AI Readiness — '+domain;
   window.print();
-  // Ripristina il titolo dopo la stampa
   setTimeout(()=>{document.title='Chi sei nell\'era dell\'AI?'},1000);
 }
 
