@@ -628,7 +628,7 @@ Proprietà INESISTENTI che non devono MAI essere suggerite: dataUsagePolicy, con
     )+'\n'+
     (isEN?
       'Respond ONLY with valid JSON. Do NOT include "score" fields:\n{"nome":"...","tipo":"Person|Organization|Brand|E-commerce|Product","percezione_ai":"3-5 sentences as external AI describing this entity","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"what works in accessible language","gap":"missed opportunity in business terms"},{"id":"grafo","nome":"Digital Authority","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"politica","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile & Expertise","sintesi":"...","gap":"..."}],"forze":["concrete strength 1","strength 2","strength 3"],"lacune":["missed opportunity 1","missed opportunity 2","missed opportunity 3"],"passi":[{"p":"high","a":"delegable concrete action"},{"p":"high","a":"delegable action"},{"p":"medium","a":"delegable action"}],"sintesi":"2-3 sentence overall assessment"}\n':
-      'Rispondi SOLO con JSON valido. NON includere campi "score":\n{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi come AI esterna che descrive questa entità","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"cosa funziona in linguaggio accessibile","gap":"opportunità persa in termini di business"},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza dell\'Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":["forza 1","forza 2","forza 3"],"lacune":["lacuna 1","lacuna 2","lacuna 3"],"passi":[{"p":"alta","a":"azione delegabile"},{"p":"alta","a":"azione"},{"p":"media","a":"azione"}],"sintesi":"2-3 frasi di valutazione complessiva"}\n'
+      'Rispondi SOLO con JSON valido. NON includere campi "score":\n{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi come AI esterna che descrive questa entita","dimensioni":[{"id":"leggibilita","nome":"Leggibilita AI","sintesi":"cosa funziona in linguaggio accessibile","gap":"opportunita persa in termini di business"},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identita","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilita AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":["forza 1","forza 2","forza 3"],"lacune":["lacuna 1","lacuna 2","lacuna 3"],"passi":[{"p":"alta","a":"azione delegabile"},{"p":"alta","a":"azione"},{"p":"media","a":"azione"}],"sintesi":"valutazione complessiva in 2-3 frasi"}\n'
     )+
     '\nREQUIRED DETAIL LEVEL: '+TONE+'/5 — '+t('toneLevels')[TONE-1]+'\n'+
     toneDescriptions[TONE]+'\n'
@@ -684,7 +684,15 @@ FILE AI:
     const clean=txt.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
     const start=clean.indexOf('{');const end=clean.lastIndexOf('}');
     if(start===-1||end===-1)throw new Error(t('errNoJson'));
-    renderResults(JSON.parse(clean.substring(start,end+1)),signals,aiFiles,scores);
+    function repairJson(s){
+      return s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,'')
+              .replace(/([^\\])\n/g,'$1 ').replace(/([^\\])\r/g,'$1 ')
+              .replace(/([^\\])\t/g,'$1 ');
+    }
+    let parsed;
+    try{parsed=JSON.parse(clean.substring(start,end+1));}
+    catch(e){console.warn('JSON repair attempt:',e.message);parsed=JSON.parse(repairJson(clean.substring(start,end+1)));}
+    renderResults(parsed,signals,aiFiles,scores);
   }catch(err){
     document.getElementById('loadingSection').style.display='none';
     document.getElementById('inputSection').style.opacity='1';
