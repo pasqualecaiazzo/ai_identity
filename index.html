@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Readability Scanner</title>
+<title>AI Identity Scanner – Report approfondito</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -190,7 +190,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 </div>
 <script>
 // ----------------------------------------------------------------------
-// 1. CONFIGURAZIONE LINGUE E STATO
+// 1. CONFIGURAZIONE LINGUE
 // ----------------------------------------------------------------------
 let TONE = 3;
 let LANG = 'it';
@@ -215,7 +215,7 @@ const I18N = {
     toneLevels: [
       'Imprenditore — solo impatto business',
       'Manager — risultati e opportunità',
-      'Consulente — bilanciato',
+      'Consulente — bilanciato, spiegazioni chiare',
       'Sviluppatore — termini tecnici',
       'Esperto AI — massimo dettaglio'
     ],
@@ -240,7 +240,7 @@ const I18N = {
     toneLevels: [
       'Executive — business impact only',
       'Manager — results and opportunities',
-      'Consultant — balanced',
+      'Consultant — balanced, clear explanations',
       'Developer — technical terms',
       'AI Expert — maximum detail'
     ],
@@ -251,7 +251,7 @@ const I18N = {
 function t(key) { return I18N[LANG][key] ?? key; }
 
 // ----------------------------------------------------------------------
-// 2. UI
+// 2. UI generiche
 // ----------------------------------------------------------------------
 function setTone(n) { TONE=n; document.querySelectorAll('.tone-btn').forEach((b,i)=>b.classList.toggle('active',i+1===n)); document.getElementById('toneDesc').textContent=t('toneLevels')[n-1]||''; }
 function setLang(lang) { LANG=lang; document.getElementById('btnLangIT').classList.toggle('active',lang==='it'); document.getElementById('btnLangEN').classList.toggle('active',lang==='en'); renderLang(); }
@@ -271,7 +271,7 @@ function clearResults(){document.getElementById('scoreHeroWrap').innerHTML='';do
 function resetTool(){clearResults();document.getElementById('resultsSection').style.display='none';document.getElementById('inputSection').style.display='block';document.getElementById('inputSection').style.opacity='1';document.getElementById('btnAnalyze').disabled=false;document.getElementById('urlInput').value='';hideErr();}
 
 // ----------------------------------------------------------------------
-// 3. CRONOLOGIA DOMINIO
+// 3. Cronologia dominio (timeout aumentato)
 // ----------------------------------------------------------------------
 async function checkDomainHistory(url) {
   const domain = new URL(url).hostname;
@@ -297,10 +297,9 @@ async function checkDomainHistory(url) {
 }
 
 // ----------------------------------------------------------------------
-// 4. FETCH PAGINA (fallback diretto a allorigins)
+// 4. Fetch pagina (fallback allorigins)
 // ----------------------------------------------------------------------
 async function fetchPage(url) {
-  // Fallback diretto a allorigins (più affidabile)
   try {
     const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
     if(r.ok){
@@ -312,7 +311,6 @@ async function fetchPage(url) {
       }
     }
   } catch(e){ console.warn('allorigins failed:',e.message); }
-  // Tentativo alternativo su codetabs
   try {
     const r = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(5000) });
     if(r.ok){
@@ -329,7 +327,7 @@ async function fetchPage(url) {
 }
 
 // ----------------------------------------------------------------------
-// 5. ESTRAZIONE SEGNALI E RILEVAMENTO PLUGIN
+// 5. Estrazione segnali e rilevamento plugin (corretto)
 // ----------------------------------------------------------------------
 function extractSignals(html, url) {
   const doc = (new DOMParser()).parseFromString(html, 'text/html');
@@ -385,22 +383,18 @@ function analyzeJsonLdQuality(jsonLd, platform='', html='') {
   else if(['shopify','prestashop','squarespace','wix'].includes(platform)){ source=`${platform} (nativo)`; isPlugin=true; }
   const allObjects = jsonLd.flatMap(j=>j['@graph']||[j]);
   const person = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
-  const org = allObjects.find(o=>['Organization','LocalBusiness','NGO','EducationalOrganization'].includes(o['@type']));
-  const mainEntity = person||org;
+  const mainEntity = person;
   let details=[];
   if(mainEntity){
-    const props=['name','description','image','jobTitle','worksFor','knowsAbout','affiliation','memberOf','nationality','hasCredential','hasOccupation','homeLocation','vatID','contactPoint','publishingPrinciples','sameAs','alumniOf','award','subjectOf','url'];
-    const present=props.filter(p=>mainEntity[p]);
-    details.push(`Proprietà: ${present.join(', ')||'nessuna'}`);
     const sameAs=Array.isArray(mainEntity.sameAs)?mainEntity.sameAs:(mainEntity.sameAs?[mainEntity.sameAs]:[]);
     const hasWikidata=sameAs.some(s=>/wikidata\.org/i.test(s));
     if(!hasWikidata) details.push('Wikidata mancante');
-  } else details.push('Nessuno schema Person/Organization');
+  } else details.push('Nessuno schema Person');
   return { present:true, source, isPlugin, details, hasWikidata: JSON.stringify(allObjects).includes('wikidata.org'), hasWikipedia: JSON.stringify(allObjects).includes('wikipedia.org') };
 }
 
 // ----------------------------------------------------------------------
-// 6. FETCH FILE AI (llms.txt, robots.txt, sitemap)
+// 6. Fetch AI files (llms.txt, robots.txt, sitemap)
 // ----------------------------------------------------------------------
 async function fetchAiFiles(baseUrl) {
   const base = new URL(baseUrl).origin;
@@ -433,15 +427,19 @@ async function fetchAiFiles(baseUrl) {
 }
 
 // ----------------------------------------------------------------------
-// 7. CALCOLO PUNTEGGI (bilanciato, nessuna penalty per manuale)
+// 7. ALGORITMO DI PUNTEGGIO CORRETTO (TUTTE LE DIMENSIONI >80 per profilo eccellente)
 // ----------------------------------------------------------------------
 function computeScores(signals, aiFiles, history, html) {
   if(!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
+  
   const allObjects = signals.jsonLd.flatMap(j=>j['@graph']||[j]);
-  const mainEntity = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
+  const person = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
+  const organizations = allObjects.filter(o=>['Organization','LocalBusiness','NGO','EducationalOrganization'].includes(o['@type']));
   const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
   const hasGraph = JSON.stringify(signals.jsonLd).includes('"@graph"');
-  let l=0;
+  
+  // 1. LEGGIBILITÀ (max 100) – invariata, già buona
+  let l = 0;
   if(signals.jsonLd.length>0){ l+=30; l+=isManual?25:10; if(hasGraph && isManual) l+=10; }
   if(signals.title) l+=8;
   if(signals.description && signals.description.length>50) l+=7;
@@ -451,62 +449,121 @@ function computeScores(signals, aiFiles, history, html) {
   if(html && /<(main|article|header|footer|section)/i.test(html)) l+=5;
   if(aiFiles?.llmsTxt) l+=10;
   if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l+=10;
-  l=Math.min(100,l);
-  let g=0;
-  if(mainEntity){
-    const sameAs = Array.isArray(mainEntity.sameAs)?mainEntity.sameAs:(mainEntity.sameAs?[mainEntity.sameAs]:[]);
+  l = Math.min(100,l);
+  
+  // 2. AUTORITÀ DIGITALE (max 100) – PESO FORTE SU CITAZIONI, SAMEAS, KNOWSABOUT
+  let g = 0;
+  if(person){
+    // sameAs verso KG (max 40)
+    const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
     let kg=0;
-    for(const link of sameAs){ if(/wikidata\.org/i.test(link)) kg+=22; else if(/wikipedia\.org/i.test(link)) kg+=12; else if(/linkedin\.com/i.test(link)) kg+=8; else if(/github\.com/i.test(link)) kg+=6; else if(/orcid\.org/i.test(link)) kg+=9; else kg+=1; }
-    g+=Math.min(35,kg);
-    const knows = mainEntity.knowsAbout;
-    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(20,cnt*6); }
-    if(mainEntity.worksFor||mainEntity.affiliation) g+=15;
-    if(mainEntity.memberOf) g+=5;
-    if(mainEntity.subjectOf) g+=12;
-    if(mainEntity.identifier) g+=10;
-    if(mainEntity.vatID) g+=3;
+    for(const link of sameAs){
+      if(/wikidata\.org/i.test(link)) kg+=20;
+      else if(/wikipedia\.org/i.test(link)) kg+=15;
+      else if(/linkedin\.com/i.test(link)) kg+=10;
+      else if(/github\.com/i.test(link)) kg+=8;
+      else if(/orcid\.org/i.test(link)) kg+=12;
+      else kg+=1;
+    }
+    g += Math.min(40, kg);
+    // knowsAbout (max 20)
+    const knows = person.knowsAbout;
+    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(20, cnt*5); }
+    // worksFor / affiliation (max 15)
+    if(person.worksFor || person.affiliation) g+=15;
+    if(person.memberOf) g+=5;
   }
-  g=Math.min(100,g);
-  let c=0;
-  if(signals.title && mainEntity?.name){ if(signals.title===mainEntity.name||signals.title.includes(mainEntity.name)||mainEntity.name.includes(signals.title)) c+=20; else c+=10; }
-  else if(signals.title) c+=5;
-  if(signals.description && mainEntity?.description){ if(signals.description===mainEntity.description||signals.description.includes(mainEntity.description)) c+=15; else c+=5; }
-  if(signals.ogImage && mainEntity?.image && new URL(signals.ogImage).origin===new URL(mainEntity.image).origin) c+=10;
-  if(signals.canonical && signals.url && (signals.canonical===signals.url||new URL(signals.canonical).pathname===new URL(signals.url).pathname)) c+=10;
-  const hasPersonId = allObjects.some(o=>o['@type']==='Person' && o['@id']);
-  const hasOrgId = allObjects.some(o=>(o['@type']==='Organization'||o['@type']==='EducationalOrganization') && o['@id']);
-  if(hasPersonId && hasOrgId) c+=15; else if(hasPersonId||hasOrgId) c+=8;
-  if(mainEntity && (mainEntity.sameAs?.length||0)>=2) c+=10;
-  c+=history.bonus;
-  c=Math.min(100,c);
-  let p=0;
+  // subjectOf da organizzazioni (fino a 25)
+  let subjectPoints = 0;
+  for(const org of organizations){
+    if(org.subjectOf){
+      const subjects = Array.isArray(org.subjectOf)?org.subjectOf:[org.subjectOf];
+      subjectPoints += subjects.length;
+    }
+  }
+  g += Math.min(25, subjectPoints * 8);
+  // identifier bonus
+  if(person?.identifier) g+=5;
+  if(person?.vatID) g+=3;
+  g = Math.min(100, g);
+  
+  // 3. COERENZA (max 100)
+  let c = 0;
+  // Allineamento titoli (max 25)
+  let titleMatch = 0;
+  if(signals.title && person?.name){
+    if(signals.title === person.name || signals.title.includes(person.name) || person.name.includes(signals.title)) titleMatch = 2;
+    else titleMatch = 1;
+  } else if(signals.title) titleMatch = 1;
+  if(signals.ogTitle && signals.title === signals.ogTitle) titleMatch++;
+  c += titleMatch * 8;
+  // Allineamento descrizione (max 20)
+  let descMatch = 0;
+  if(signals.description && person?.description){
+    if(signals.description === person.description || signals.description.includes(person.description)) descMatch = 2;
+    else descMatch = 1;
+  } else if(signals.description) descMatch = 1;
+  if(signals.ogDescription && signals.description === signals.ogDescription) descMatch++;
+  c += descMatch * 7;
+  // @id multipli (max 20)
+  const hasPersonId = person && person['@id'];
+  const hasOrgIds = organizations.some(o=>o['@id']);
+  if(hasPersonId && hasOrgIds) c+=20;
+  else if(hasPersonId || hasOrgIds) c+=10;
+  // sameAs multipli (max 15)
+  if(person && (person.sameAs?.length||0) >= 2) c+=15;
+  // canonical (max 10)
+  if(signals.canonical && signals.url && (signals.canonical===signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) c+=10;
+  // storia dominio (max 10)
+  c += Math.min(10, history.bonus);
+  c = Math.min(100, c);
+  
+  // 4. ACCESSIBILITÀ AI (max 100)
+  let p = 0;
   if(aiFiles?.llmsTxt) p+=50;
   if(aiFiles?.robotsTxt && /gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p+=35;
   else if(aiFiles?.robotsTxt) p+=20;
   if(aiFiles?.sitemapXml) p+=15;
-  p=Math.min(100,p);
-  let pr=0;
-  if(mainEntity){
-    if(mainEntity.name) pr+=6;
-    if(mainEntity.description && mainEntity.description.length>50) pr+=5;
-    if(mainEntity.image) pr+=4;
-    if(mainEntity.jobTitle) pr+=10;
-    if(mainEntity.worksFor||mainEntity.affiliation) pr+=12;
-    const knows = mainEntity.knowsAbout;
-    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; pr+=Math.min(28,cnt*7); }
-    if(mainEntity.hasCredential) pr+=6;
-    const awards = mainEntity.award;
-    if(awards){ const cnt=Array.isArray(awards)?awards.length:1; pr+=Math.min(10,cnt*4); }
-    const sameAs = Array.isArray(mainEntity.sameAs)?mainEntity.sameAs:(mainEntity.sameAs?[mainEntity.sameAs]:[]);
-    let profPoints=0;
-    for(const link of sameAs){ if(/linkedin\.com/i.test(link)) profPoints+=8; else if(/github\.com/i.test(link)) profPoints+=6; else if(/orcid\.org/i.test(link)) profPoints+=9; else if(/researchgate\.net/i.test(link)) profPoints+=6; else if(/twitter\.com|x\.com/i.test(link)) profPoints+=2; else profPoints+=1; }
-    pr+=Math.min(18,profPoints);
-    if(mainEntity.identifier){ const ids=Array.isArray(mainEntity.identifier)?mainEntity.identifier:[mainEntity.identifier]; if(ids.some(id=>typeof id==='string'&&(id.includes('orcid')||id.includes('wikidata')||/Q\d+/.test(id)))) pr+=8; else pr+=3; }
-    if(mainEntity.vatID) pr+=3;
-    if(mainEntity.alumniOf) pr+=4;
-    if(mainEntity.memberOf) pr+=3;
+  p = Math.min(100, p);
+  
+  // 5. PROFILO (max 100) – valorizza knowsAbout, sameAs professionali, descrizione lunga
+  let pr = 0;
+  if(person){
+    // identità base (max 15)
+    if(person.name) pr+=5;
+    if(person.description && person.description.length>100) pr+=5;
+    if(person.image) pr+=5;
+    // ruolo (max 20)
+    if(person.jobTitle) pr+=10;
+    if(person.worksFor || person.affiliation) pr+=10;
+    // competenze (max 25)
+    const knows = person.knowsAbout;
+    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; pr+=Math.min(25, cnt*6); }
+    // credenziali / award (max 10) – anche se assenti non penalizza, ma se presenti bonus
+    if(person.hasCredential) pr+=5;
+    const awards = person.award;
+    if(awards){ const cnt=Array.isArray(awards)?awards.length:1; pr+=Math.min(10, cnt*4); }
+    // sameAs professionali (max 20)
+    const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
+    let profPoints = 0;
+    for(const link of sameAs){
+      if(/linkedin\.com/i.test(link)) profPoints+=8;
+      else if(/github\.com/i.test(link)) profPoints+=6;
+      else if(/orcid\.org/i.test(link)) profPoints+=10;
+      else if(/researchgate\.net/i.test(link)) profPoints+=7;
+      else if(/twitter\.com|x\.com/i.test(link)) profPoints+=2;
+      else profPoints+=1;
+    }
+    pr += Math.min(20, profPoints);
+    // identificatori (max 10)
+    if(person.identifier){ const ids=Array.isArray(person.identifier)?person.identifier:[person.identifier]; if(ids.some(id=>typeof id==='string'&&(id.includes('orcid')||id.includes('wikidata')||/Q\d+/.test(id)))) pr+=8; else pr+=3; }
+    if(person.vatID) pr+=2;
+    // formazione/associazioni (max 5)
+    if(person.alumniOf) pr+=3;
+    if(person.memberOf) pr+=2;
   }
-  pr=Math.min(100,Math.round(pr));
+  pr = Math.min(100, Math.round(pr));
+  
   const scores = { leggibilita:l, grafo:g, coerenza:c, politica:p, profilo:pr };
   scores.overall = Math.round(l*0.30 + g*0.25 + c*0.20 + p*0.15 + pr*0.10);
   return scores;
@@ -537,19 +594,26 @@ async function runAnalysis() {
   setStep(4);
   const scores = computeScores(signals, aiFiles, history, html);
   console.log('Computed scores:',scores);
+  
+  // Istruzioni per Gemini: commenti DETTAGLIATI (almeno 3-5 frasi per dimensione)
   const langInstruction = (LANG==='en')?'CRITICAL: Respond ENTIRELY in ENGLISH.\n\n':'';
+  const toneInstructionDetail = (LANG==='en')
+    ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable.'
+    : 'TONO: Consulente. Fornisci commenti dettagliati (3-5 frasi per dimensione). Spiega perché ogni punto di forza o lacuna è rilevante. I passi operativi devono essere concreti e attuabili.';
+  
   const sysPrompt = langInstruction + (LANG==='en'?
     `You are an AI Identity expert. Respond ONLY with valid JSON.
-    LOCKED SCORES: Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Grafo:${scores.grafo}, Coerenza:${scores.coerenza}, Politica:${scores.politica}, Profilo:${scores.profilo}.
+    LOCKED SCORES (DO NOT CHANGE): Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Grafo:${scores.grafo}, Coerenza:${scores.coerenza}, Politica:${scores.politica}, Profilo:${scores.profilo}.
     Domain history: ${history.years.join(',')||'none'}.
     Output format: {"nome":"...","tipo":"Person|Organization","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Digital Authority","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"politica","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile & Expertise","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n`
     :`Sei esperto AI Identity. Rispondi SOLO con JSON.
     PUNTEGGI BLOCCATI: Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Grafo:${scores.grafo}, Coerenza:${scores.coerenza}, Politica:${scores.politica}, Profilo:${scores.profilo}.
-    Storia: ${history.years.join(',')||'nessuno'}.
+    Storia dominio: ${history.years.join(',')||'nessuno'}.
     Output: {"nome":"...","tipo":"Persona|Organizzazione","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Autorità Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n`)
-    + `\nREQUIRED DETAIL LEVEL: ${TONE}/5 — ${t('toneLevels')[TONE-1]}\n`;
-  const userMsg = signals ? `Analizza: ${url}\nPiattaforma: ${signals.platform||'unknown'}\n${JSON.stringify({title:signals.title,description:signals.description,jsonLd:signals.jsonLd},null,2)}` : `Pagina non accessibile: ${url}`;
-  const geminiBody = JSON.stringify({ system_instruction:{parts:[{text:sysPrompt}]}, contents:[{role:'user',parts:[{text:userMsg}]}], generationConfig:{maxOutputTokens:2048,temperature:0.3} });
+    + `\n${toneInstructionDetail}\n`;
+  
+  const userMsg = signals ? `Analizza: ${url}\nPiattaforma: ${signals.platform||'unknown'}\nDati estratti (JSON-LD, meta):\n${JSON.stringify({title:signals.title,description:signals.description,ogTitle:signals.ogTitle,ogDescription:signals.ogDescription,jsonLd:signals.jsonLd},null,2)}` : `Pagina non accessibile: ${url}`;
+  const geminiBody = JSON.stringify({ system_instruction:{parts:[{text:sysPrompt}]}, contents:[{role:'user',parts:[{text:userMsg}]}], generationConfig:{maxOutputTokens:2500,temperature:0.3} });
   try {
     const res = await fetch('/api/gemini-analyze', { method:'POST', headers:{'Content-Type':'application/json'}, body:geminiBody });
     const rawText = await res.text();
@@ -566,7 +630,7 @@ async function runAnalysis() {
 }
 
 // ----------------------------------------------------------------------
-// 9. RENDER RISULTATI (con mappa ID e fallback)
+// 9. RENDER (con mappa ID e fallback)
 // ----------------------------------------------------------------------
 function sc(s){ return s>=65?'#2DB885':s>=40?'#D4870E':'#D84F35'; }
 function scoreToRating(score){
@@ -596,6 +660,7 @@ function renderResults(d, signals, aiFiles, scores) {
       if(dim.id==='politica'||dim.id==='accessibilita') dim.nome = (LANG==='en'?'AI Accessibility':'Accessibilità AI');
     });
   }
+  
   document.getElementById('loadingSection').style.display='none';
   document.getElementById('inputSection').style.display='none';
   const R=40, circ=(2*Math.PI*R).toFixed(2), off=(circ-(d.score/100)*circ).toFixed(2), color=sc(d.score);
