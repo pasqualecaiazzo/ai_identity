@@ -1,75 +1,48 @@
-const MODELS = [
-  'gemini-2.5-flash-lite',
-  'gemini-3.1-flash-lite-preview',
-  'gemini-3-flash-preview',
-  'gemini-2.5-flash',
-];
-
-// I modelli lite sono già veloci — nessuna configurazione thinking necessaria
+const MODEL = "gemini-3.1-flash";
 
 module.exports = async (req, res) => {
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-  const origin  = req.headers.origin  || '';
-  const referer = req.headers.referer || '';
-  const allowedSuffixes = (process.env.ALLOWED_ORIGIN || '')
-    .split(',').map(s => s.trim()).filter(Boolean);
-
-  if (allowedSuffixes.length > 0) {
-    const isSameOrigin     = !origin;
-    const isAllowedOrigin  = allowedSuffixes.some(s => origin.endsWith(s));
-    const isAllowedReferer = allowedSuffixes.some(s => referer.includes(s));
-    if (!isSameOrigin && !isAllowedOrigin && !isAllowedReferer) {
-      return res.status(403).send('Forbidden');
-    }
-  }
-
   const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'GOOGLE_API_KEY non configurata.' });
+  if (!apiKey) return res.status(500).json({ error: 'Configurazione mancante.' });
 
-  const body = req.body;
-  let lastError = null;
-
-  for (const model of MODELS) {
-    try {
-      const payload = {
-        ...body,
-        generationConfig: body.generationConfig || {},
-      };
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(55000),
-        }
-      );
-
-      const data = await response.text();
-
-      if (response.status === 429 || response.status === 503) {
-        console.warn(`Model ${model} rate limited (${response.status}), trying next...`);
-        lastError = { status: response.status, data };
-        continue;
+  try {
+    const body = req.body;
+    
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...body,
+          generationConfig: {
+            temperature: 0.1, // Riduce la variazione dei testi
+            maxOutputTokens: 1500,
+            responseMimeType: "application/json" // Forza l'AI a rispondere solo con JSON
+          }
+        }),
+        signal: AbortSignal.timeout(30000)
       }
+    );
 
-      console.log(`Model ${model} responded with ${response.status}`);
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('X-Model-Used', model);
-      return res.status(response.status).send(data);
-
-    } catch (err) {
-      console.warn(`Model ${model} threw:`, err.message);
-      lastError = { status: 500, data: JSON.stringify({ error: err.message }) };
+    const data = await response.json();
+    
+    if (response.status !== 200) {
+      return res.status(response.status).json({ error: 'Errore API Gemini', detail: data });
     }
-  }
 
-  res.setHeader('Content-Type', 'application/json');
-  return res.status(lastError?.status || 429).send(
-    lastError?.data || JSON.stringify({ error: 'Tutti i modelli Gemini hanno raggiunto il rate limit.' })
-  );
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).json(data);
+
+  } catch (err) {
+    console.error('Backend Error:', err.message);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
 };
