@@ -381,85 +381,122 @@ async function fetchAiFiles(baseUrl){
 
 // ================ ALGORITMO DI PUNTEGGIO (SOLO AI READINESS, NO CITAZIONI ESTERNE) ================
 function computeScores(signals, aiFiles, history, html) {
-  if(!signals) return { leggibilita:20, connessione:20, coerenza:20, accessibilita:20, profilo:20, overall:20 };
+  if(!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
+  
   const allObjects = signals.jsonLd.flatMap(j=>j['@graph']||[j]);
   const person = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
   const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
   
-  // 1. LEGGIBILITÀ AI (max 100)
-  let leggibilita = 0;
-  if(signals.jsonLd.length>0){ leggibilita += 40; leggibilita += isManual ? 30 : 10; if(JSON.stringify(signals.jsonLd).includes('"@graph"')) leggibilita += 10; }
-  if(signals.title) leggibilita += 5;
-  if(signals.description && signals.description.length>50) leggibilita += 5;
-  if(signals.canonical) leggibilita += 5;
-  if(signals.ogTitle && signals.ogDescription) leggibilita += 5;
-  if(signals.h1s?.length) leggibilita += 5;
-  if(html && /<(main|article|header|footer|section)/i.test(html)) leggibilita += 5;
-  if(aiFiles?.llmsTxt) leggibilita += 15;
-  if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) leggibilita += 10;
-  leggibilita = Math.min(100, leggibilita);
+  // 1. LEGGIBILITÀ AI (invariata)
+  let l = 0;
+  if(signals.jsonLd.length>0){ l+=40; l+=isManual?30:10; if(JSON.stringify(signals.jsonLd).includes('"@graph"')) l+=10; }
+  if(signals.title) l+=5;
+  if(signals.description && signals.description.length>50) l+=5;
+  if(signals.canonical) l+=5;
+  if(signals.ogTitle && signals.ogDescription) l+=5;
+  if(signals.h1s?.length) l+=5;
+  if(html && /<(main|article|header|footer|section)/i.test(html)) l+=5;
+  if(aiFiles?.llmsTxt) l+=15;
+  if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l+=10;
+  l = Math.min(100,l);
   
-  // 2. COERENZA IDENTITÀ (solo allineamento frontend/backend)
-  let coerenza = 0;
+  // 2. COERENZA IDENTITÀ (rivista, più generosa)
+  let c = 0;
+  
+  // Allineamento title vs name (max 25)
   if(signals.title && person?.name){
-    const titleNorm = signals.title.toLowerCase().replace(/[^\w\s]/g,'');
-    const nameNorm = person.name.toLowerCase().replace(/[^\w\s]/g,'');
-    if(titleNorm === nameNorm) coerenza += 35;
-    else if(titleNorm.includes(nameNorm) || nameNorm.includes(titleNorm)) coerenza += 25;
-    else coerenza += 15;
-  } else if(signals.title) coerenza += 10;
+    const titleClean = signals.title.toLowerCase().replace(/[^a-z0-9\s]/g,'');
+    const nameClean = person.name.toLowerCase().replace(/[^a-z0-9\s]/g,'');
+    if(titleClean === nameClean) c+=25;
+    else if(titleClean.includes(nameClean)) c+=22;
+    else if(nameClean.includes(titleClean)) c+=18;
+    else c+=10;
+  } else if(signals.title) c+=5;
+  
+  // Allineamento description (max 20) – basato su parole chiave condivise
   if(signals.description && person?.description){
-    const descNorm = signals.description.toLowerCase();
-    const persDescNorm = person.description.toLowerCase();
-    if(descNorm === persDescNorm) coerenza += 30;
-    else if(descNorm.includes(persDescNorm) || persDescNorm.includes(descNorm)) coerenza += 20;
-    else coerenza += 10;
-  } else if(signals.description) coerenza += 10;
-  if(signals.ogImage && person?.image && new URL(signals.ogImage).origin === new URL(person.image).origin) coerenza += 15;
-  if(signals.canonical && signals.url && (signals.canonical===signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) coerenza += 15;
-  if(person && person['@id']) coerenza += 10;
-  coerenza = Math.min(100, coerenza);
+    const descWords = signals.description.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+    const persWords = person.description.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+    const common = descWords.filter(w=>persWords.includes(w)).length;
+    const maxPossible = Math.min(descWords.length, persWords.length);
+    let ratio = maxPossible > 0 ? common / maxPossible : 0;
+    c += Math.min(20, Math.round(ratio * 20));
+  } else if(signals.description) c+=5;
   
-  // 3. ACCESSIBILITÀ AI
-  let accessibilita = 0;
-  if(aiFiles?.llmsTxt) accessibilita += 50;
-  if(aiFiles?.robotsTxt){ if(/gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) accessibilita += 40; else accessibilita += 25; }
-  if(aiFiles?.sitemapXml) accessibilita += 10;
-  accessibilita = Math.min(100, accessibilita);
+  // Immagine (max 10)
+  if(signals.ogImage && person?.image && new URL(signals.ogImage).origin === new URL(person.image).origin) c+=10;
   
-  // 4. PROFILO (completezza dei campi)
-  let profilo = 0;
+  // Canonical (max 10)
+  if(signals.canonical && signals.url && (signals.canonical===signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) c+=10;
+  
+  // @id su Person (max 10)
+  if(person && person['@id']) c+=10;
+  
+  // sameAs (max 5)
+  if(person && person.sameAs && (Array.isArray(person.sameAs)?person.sameAs.length:1)>0) c+=5;
+  
+  // BONUS: affiliazioni multiple (fino a 15 punti) – premia la ricchezza relazionale
+  let affCount = 0;
   if(person){
-    if(person.name) profilo += 15;
-    if(person.description && person.description.length>50) profilo += 15;
-    if(person.image) profilo += 10;
-    if(person.jobTitle) profilo += 15;
-    if(person.worksFor || person.affiliation) profilo += 15;
-    const knows = person.knowsAbout;
-    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; profilo += Math.min(20, cnt*5); }
-    if(person.identifier) profilo += 10;
-  } else { profilo = 20; }
-  profilo = Math.min(100, Math.round(profilo));
+    if(person.affiliation) affCount += Array.isArray(person.affiliation)?person.affiliation.length:1;
+    if(person.worksFor) affCount += Array.isArray(person.worksFor)?person.worksFor.length:1;
+  }
+  c += Math.min(15, affCount * 3);
   
-  // 5. CONNESSIONE PROFESSIONALE (solo LinkedIn, GitHub, knowsAbout, worksFor - niente giornali)
-  let connessione = 0;
+  // Storia dominio (bonus piccolo, max 5)
+  c += Math.min(5, history.bonus);
+  
+  c = Math.min(100, c);
+  
+  // 3. ACCESSIBILITÀ AI (invariata)
+  let p = 0;
+  if(aiFiles?.llmsTxt) p+=50;
+  if(aiFiles?.robotsTxt){ if(/gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p+=35; else p+=20; }
+  if(aiFiles?.sitemapXml) p+=15;
+  p = Math.min(100,p);
+  
+  // 4. PROFILO (invariato)
+  let pr = 0;
+  if(person){
+    if(person.name) pr+=15;
+    if(person.description && person.description.length>50) pr+=15;
+    if(person.image) pr+=10;
+    if(person.jobTitle) pr+=15;
+    if(person.worksFor || person.affiliation) pr+=15;
+    const knows = person.knowsAbout;
+    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; pr+=Math.min(20, cnt*5); }
+    const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
+    let profLinks=0;
+    for(const link of sameAs){
+      if(/linkedin\.com/i.test(link)) profLinks+=5;
+      else if(/github\.com/i.test(link)) profLinks+=4;
+      else if(/orcid\.org/i.test(link)) profLinks+=5;
+      else profLinks+=1;
+    }
+    pr += Math.min(10, profLinks);
+    if(person.identifier) pr+=5;
+  }
+  pr = Math.min(100, Math.round(pr));
+  
+  // 5. RETE PROFESSIONALE (ex Autorità Digitale) – solo link professionali e knowsAbout
+  let g = 0;
   if(person){
     const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
-    let socialPoints = 0;
+    let kg=0;
     for(const link of sameAs){
-      if(/linkedin\.com/i.test(link)) socialPoints += 20;
-      else if(/github\.com/i.test(link)) socialPoints += 15;
-      else socialPoints += 2;
+      if(/linkedin\.com/i.test(link)) kg+=15;
+      else if(/github\.com/i.test(link)) kg+=10;
+      else kg+=2;
     }
-    connessione += Math.min(40, socialPoints);
+    g += Math.min(40, kg);
     const knows = person.knowsAbout;
-    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; connessione += Math.min(35, cnt*7); }
-    if(person.worksFor || person.affiliation) connessione += 25;
-    connessione = Math.min(100, connessione);
-  } else connessione = 50;
+    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(30, cnt*8); }
+    if(person.worksFor || person.affiliation) g+=20;
+    g = Math.min(100, g);
+  } else g=50;
   
-  const scores = { leggibilita, connessione, coerenza, accessibilita, profilo };
-  scores.overall = Math.round(leggibilita*0.30 + connessione*0.20 + coerenza*0.25 + accessibilita*0.15 + profilo*0.10);
+  const scores = { leggibilita:l, grafo:g, coerenza:c, politica:p, profilo:pr };
+  scores.overall = Math.round(l*0.30 + g*0.25 + c*0.20 + p*0.15 + pr*0.10);
   console.log('FINAL SCORES:', scores);
   return scores;
 }
