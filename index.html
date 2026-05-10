@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Identity Scanner – Report approfondito</title>
+<title>AI Readability Scanner – Identity & Semantics</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
+/* ===== STILI (identici a prima, invariati) ===== */
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#07070F;--surface:#0D0D1C;--surface2:#111120;
@@ -188,13 +189,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
   <div class="footer" id="i18n-footer"></div>
 </div>
+
 <script>
-// ----------------------------------------------------------------------
-// 1. CONFIGURAZIONE LINGUE
-// ----------------------------------------------------------------------
+// =======================  LINGUE E UI  =======================
 let TONE = 3;
 let LANG = 'it';
-
 const I18N = {
   it: {
     headline: 'Chi sei<br><em>nell\'era dell\'AI?</em>',
@@ -212,13 +211,7 @@ const I18N = {
     errApi: 'Errore API',
     errNoJson: 'JSON non trovato nella risposta — vedi Console per dettagli.',
     toneLabel: 'Livello di dettaglio',
-    toneLevels: [
-      'Imprenditore — solo impatto business',
-      'Manager — risultati e opportunità',
-      'Consulente — bilanciato, spiegazioni chiare',
-      'Sviluppatore — termini tecnici',
-      'Esperto AI — massimo dettaglio'
-    ],
+    toneLevels: ['Imprenditore — solo impatto business', 'Manager — risultati e opportunità', 'Consulente — bilanciato, spiegazioni chiare', 'Sviluppatore — termini tecnici', 'Esperto AI — massimo dettaglio'],
     promptLang: ''
   },
   en: {
@@ -237,120 +230,91 @@ const I18N = {
     errApi: 'API Error',
     errNoJson: 'JSON not found in response — check the Console for details.',
     toneLabel: 'Detail level',
-    toneLevels: [
-      'Executive — business impact only',
-      'Manager — results and opportunities',
-      'Consultant — balanced, clear explanations',
-      'Developer — technical terms',
-      'AI Expert — maximum detail'
-    ],
+    toneLevels: ['Executive — business impact only', 'Manager — results and opportunities', 'Consultant — balanced, clear explanations', 'Developer — technical terms', 'AI Expert — maximum detail'],
     promptLang: '\n\nIMPORTANT: Respond entirely in ENGLISH. Every text field must be in English.'
   }
 };
-
-function t(key) { return I18N[LANG][key] ?? key; }
-
-function setTone(n) { TONE=n; document.querySelectorAll('.tone-btn').forEach((b,i)=>b.classList.toggle('active',i+1===n)); document.getElementById('toneDesc').textContent=t('toneLevels')[n-1]||''; }
-function setLang(lang) { LANG=lang; document.getElementById('btnLangIT').classList.toggle('active',lang==='it'); document.getElementById('btnLangEN').classList.toggle('active',lang==='en'); renderLang(); }
-function renderLang() {
-  const ids={'i18n-headline':'headline','i18n-subhead':'subhead','i18n-fieldLabel':'fieldLabel','i18n-btnReset':'btnReset','i18n-footer':'footer','i18n-toneLabel':'toneLabel'};
-  Object.entries(ids).forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.innerHTML=t(key);});
+function t(k){ return I18N[LANG][k]??k; }
+function setLang(l){ LANG=l; document.getElementById('btnLangIT').classList.toggle('active',l==='it'); document.getElementById('btnLangEN').classList.toggle('active',l==='en'); renderLang(); }
+function renderLang(){
+  const ids={ 'i18n-headline':'headline','i18n-subhead':'subhead','i18n-fieldLabel':'fieldLabel','i18n-btnReset':'btnReset','i18n-footer':'footer','i18n-toneLabel':'toneLabel' };
+  Object.entries(ids).forEach(([id,key])=>{ let el=document.getElementById(id); if(el) el.innerHTML=t(key); });
   document.getElementById('urlInput').placeholder=t('placeholder');
   document.getElementById('btnAnalyze').textContent=t('btnAnalyze');
   document.getElementById('btnPdf').textContent=t('btnPdf');
-  for(let i=1;i<=4;i++){const el=document.getElementById('s'+i);if(el)el.textContent=t('s'+i);}
+  for(let i=1;i<=4;i++){ let el=document.getElementById('s'+i); if(el) el.textContent=t('s'+i); }
   document.getElementById('toneDesc').textContent=t('toneLevels')[TONE-1]||'';
 }
-function showErr(m){const e=document.getElementById('errorBox');e.textContent=m;e.style.display='block';}
-function hideErr(){document.getElementById('errorBox').style.display='none';}
-function setStep(n){for(let i=1;i<=4;i++){const e=document.getElementById('s'+i);if(!e)continue;e.classList.remove('active','done');if(i<n)e.classList.add('done');else if(i===n)e.classList.add('active');}}
-function clearResults(){document.getElementById('scoreHeroWrap').innerHTML='';document.getElementById('dataBar').innerHTML='';document.getElementById('dimsGrid').innerHTML='';document.getElementById('bottomGrid').innerHTML='';const p=document.getElementById('percezioneBox');if(p)p.remove();}
-function resetTool(){clearResults();document.getElementById('resultsSection').style.display='none';document.getElementById('inputSection').style.display='block';document.getElementById('inputSection').style.opacity='1';document.getElementById('btnAnalyze').disabled=false;document.getElementById('urlInput').value='';hideErr();}
+function setTone(n){ TONE=n; document.querySelectorAll('.tone-btn').forEach((b,i)=>b.classList.toggle('active',i+1===n)); document.getElementById('toneDesc').textContent=t('toneLevels')[n-1]||''; }
+function showErr(m){ let e=document.getElementById('errorBox'); e.textContent=m; e.style.display='block'; }
+function hideErr(){ document.getElementById('errorBox').style.display='none'; }
+function setStep(n){ for(let i=1;i<=4;i++){ let e=document.getElementById('s'+i); if(e){ e.classList.remove('active','done'); if(i<n) e.classList.add('done'); else if(i===n) e.classList.add('active'); } } }
+function clearResults(){ document.getElementById('scoreHeroWrap').innerHTML=''; document.getElementById('dataBar').innerHTML=''; document.getElementById('dimsGrid').innerHTML=''; document.getElementById('bottomGrid').innerHTML=''; let p=document.getElementById('percezioneBox'); if(p) p.remove(); }
+function resetTool(){ clearResults(); document.getElementById('resultsSection').style.display='none'; document.getElementById('inputSection').style.display='block'; document.getElementById('inputSection').style.opacity='1'; document.getElementById('btnAnalyze').disabled=false; document.getElementById('urlInput').value=''; hideErr(); }
 
-// ----------------------------------------------------------------------
-// 3. Cronologia dominio (usa backend proxy)
-// ----------------------------------------------------------------------
-async function checkDomainHistory(url) {
+// ================ CRONOLOGIA DOMINIO (via backend) ================
+async function checkDomainHistory(url){
   const domain = new URL(url).hostname;
-  const years = [1,2,5];
+  const years=[1,2,5];
   let historyBonus=0, found=[];
-  const now = new Date();
-  const checks = years.map(async (y)=>{
+  const now=new Date();
+  const checks=years.map(async(y)=>{
     const ts = new Date(now.getFullYear()-y, now.getMonth(), now.getDate()).toISOString().slice(0,10).replace(/-/g,'');
-    try {
+    try{
       const proxyUrl = `/api/fetch-page?url=${encodeURIComponent(`https://archive.org/wayback/available?url=${domain}&timestamp=${ts}`)}`;
       const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
       const data = await res.json();
       let parsed = data.contents ? JSON.parse(data.contents) : data;
-      if(parsed.archived_snapshots?.closest) { found.push(y); return true; }
-    } catch(e){ console.warn(`Wayback failed for ${y}y:`,e.message); }
+      if(parsed.archived_snapshots?.closest){ found.push(y); return true; }
+    }catch(e){ console.warn(`Wayback failed ${y}y:`,e.message); }
     return false;
   });
   await Promise.all(checks);
   if(found.includes(1)) historyBonus+=5;
   if(found.includes(2)) historyBonus+=5;
   if(found.includes(5)) historyBonus+=10;
-  return { bonus: historyBonus, years: found };
+  return { bonus:historyBonus, years:found };
 }
 
-// ----------------------------------------------------------------------
-// 4. Fetch pagina (solo backend)
-// ----------------------------------------------------------------------
-async function fetchPage(url) {
-  try {
-    const response = await fetch(`/api/fetch-page?url=${encodeURIComponent(url)}`);
-    if (response.ok) {
-      const html = await response.text();
-      if (html && html.length > 200) {
-        console.log('Backend proxy OK, length:', html.length);
-        window._fetchTrapped = false;
-        return html;
-      } else {
-        console.warn('HTML too short or empty');
-      }
-    } else {
-      console.warn('Backend proxy status:', response.status);
-    }
-  } catch (err) {
-    console.error('Backend proxy error:', err);
-  }
+// ================ FETCH PAGINA (solo backend) ================
+async function fetchPage(url){
+  try{
+    const res = await fetch(`/api/fetch-page?url=${encodeURIComponent(url)}`);
+    if(res.ok){
+      const html = await res.text();
+      if(html && html.length>200){ console.log('Backend OK, length:',html.length); window._fetchTrapped=false; return html; }
+      else console.warn('HTML too short');
+    }else console.warn('Backend status:',res.status);
+  }catch(e){ console.error('Backend fetch error:',e); }
   return null;
 }
 
-// ----------------------------------------------------------------------
-// 5. Estrazione segnali e rilevamento plugin
-// ----------------------------------------------------------------------
-function extractSignals(html, url) {
-  const doc = (new DOMParser()).parseFromString(html, 'text/html');
+// ================ ESTRAZIONE SEGNALI ================
+function extractSignals(html, url){
+  const doc = new DOMParser().parseFromString(html,'text/html');
   const content = (sel)=>doc.querySelector(sel)?.getAttribute('content')||null;
   const hrefAttr = (sel)=>doc.querySelector(sel)?.href||null;
   const jsonLdScripts = [...doc.querySelectorAll('script[type="application/ld+json"]')];
-  const jsonLd = jsonLdScripts.map(s=>{try{return JSON.parse(s.textContent);}catch{return null;}}).filter(Boolean);
+  const jsonLd = jsonLdScripts.map(s=>{ try{ return JSON.parse(s.textContent); }catch{ return null; } }).filter(Boolean);
   const links = [...doc.querySelectorAll('a[href]')].map(a=>a.href);
   const allObjects = jsonLd.flatMap(j=>j['@graph']||[j]);
   return {
-    url, title: doc.title||null,
-    description: content('meta[name="description"]'),
-    canonical: hrefAttr('link[rel="canonical"]'),
-    ogTitle: content('meta[property="og:title"]'),
-    ogDescription: content('meta[property="og:description"]'),
-    ogType: content('meta[property="og:type"]'),
-    ogImage: content('meta[property="og:image"]'),
-    author: content('meta[name="author"]'),
-    jsonLd,
-    jsonLdTypes: allObjects.map(o=>o['@type']).filter(Boolean).flat(),
-    hasPersonSchema: allObjects.some(o=>['Person','ProfilePage'].includes(o['@type'])),
-    hasOrgSchema: allObjects.some(o=>['Organization','LocalBusiness','NGO','Association','EducationalOrganization'].includes(o['@type'])),
-    sameAs: allObjects.flatMap(o=>Array.isArray(o.sameAs)?o.sameAs:(o.sameAs?[o.sameAs]:[])),
-    hasCustomDomain: (()=>{try{return !/^(www\.)?(linkedin|facebook|instagram|twitter|x\.com|linktree|bio\.link|linktr\.ee)/i.test(new URL(url).hostname);}catch{return true;}})(),
-    socials: { linkedin: links.find(h=>/linkedin\.com\/(in|company)\//i.test(h))||null, github: links.find(h=>/github\.com\//i.test(h))||null },
-    h1s: [...doc.querySelectorAll('h1')].map(h=>h.textContent.trim()).filter(Boolean).slice(0,3),
-    bodyExcerpt: (doc.body?.textContent||'').replace(/\s+/g,' ').trim().substring(0,400),
-    platform: detectPlatform(html, jsonLd),
-    jsonLdQuality: analyzeJsonLdQuality(jsonLd, detectPlatform(html, jsonLd), html)
+    url, title:doc.title||null, description:content('meta[name="description"]'), canonical:hrefAttr('link[rel="canonical"]'),
+    ogTitle:content('meta[property="og:title"]'), ogDescription:content('meta[property="og:description"]'),
+    ogType:content('meta[property="og:type"]'), ogImage:content('meta[property="og:image"]'), author:content('meta[name="author"]'),
+    jsonLd, jsonLdTypes:allObjects.map(o=>o['@type']).filter(Boolean).flat(),
+    hasPersonSchema:allObjects.some(o=>['Person','ProfilePage'].includes(o['@type'])),
+    hasOrgSchema:allObjects.some(o=>['Organization','LocalBusiness','NGO','Association','EducationalOrganization'].includes(o['@type'])),
+    sameAs:allObjects.flatMap(o=>Array.isArray(o.sameAs)?o.sameAs:(o.sameAs?[o.sameAs]:[])),
+    hasCustomDomain:(()=>{try{return !/^(www\.)?(linkedin|facebook|instagram|twitter|x\.com|linktree|bio\.link|linktr\.ee)/i.test(new URL(url).hostname);}catch{return true;}})(),
+    socials:{ linkedin:links.find(h=>/linkedin\.com\/(in|company)\//i.test(h))||null, github:links.find(h=>/github\.com\//i.test(h))||null },
+    h1s:[...doc.querySelectorAll('h1')].map(h=>h.textContent.trim()).filter(Boolean).slice(0,3),
+    bodyExcerpt:(doc.body?.textContent||'').replace(/\s+/g,' ').trim().substring(0,400),
+    platform:detectPlatform(html,jsonLd),
+    jsonLdQuality:analyzeJsonLdQuality(jsonLd, detectPlatform(html,jsonLd), html)
   };
 }
-function detectPlatform(html, jsonLd) {
+function detectPlatform(html, jsonLd){
   const raw=JSON.stringify(jsonLd), head=(html||'').substring(0,8000);
   if(/cdn\.shopify\.com|shopify\.com\/s\//i.test(raw)||/Shopify\./i.test(head)) return 'shopify';
   if(/prestashop/i.test(head)||/"prestashop"/i.test(raw)) return 'prestashop';
@@ -360,7 +324,7 @@ function detectPlatform(html, jsonLd) {
   if(/wixsite\.com|static\.wixstatic/i.test(raw)||/wix-code/i.test(head)) return 'wix';
   return 'unknown';
 }
-function analyzeJsonLdQuality(jsonLd, platform='', html='') {
+function analyzeJsonLdQuality(jsonLd, platform='', html=''){
   if(!jsonLd.length) return { present:false, source:'nessuno', isPlugin:false, details:[] };
   const raw=JSON.stringify(jsonLd);
   const fullHtml=(html||'').toLowerCase();
@@ -374,36 +338,31 @@ function analyzeJsonLdQuality(jsonLd, platform='', html='') {
   else if(['shopify','prestashop','squarespace','wix'].includes(platform)){ source=`${platform} (nativo)`; isPlugin=true; }
   const allObjects = jsonLd.flatMap(j=>j['@graph']||[j]);
   const person = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
-  const mainEntity = person;
   let details=[];
-  if(mainEntity){
-    const sameAs=Array.isArray(mainEntity.sameAs)?mainEntity.sameAs:(mainEntity.sameAs?[mainEntity.sameAs]:[]);
+  if(person){
+    const sameAs=Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
     const hasWikidata=sameAs.some(s=>/wikidata\.org/i.test(s));
     if(!hasWikidata) details.push('Wikidata mancante');
   } else details.push('Nessuno schema Person');
-  return { present:true, source, isPlugin, details, hasWikidata: JSON.stringify(allObjects).includes('wikidata.org'), hasWikipedia: JSON.stringify(allObjects).includes('wikipedia.org') };
+  return { present:true, source, isPlugin, details, hasWikidata:JSON.stringify(allObjects).includes('wikidata.org'), hasWikipedia:JSON.stringify(allObjects).includes('wikipedia.org') };
 }
 
-// ----------------------------------------------------------------------
-// 6. FETCH AI files (usa backend con raw=1)
-// ----------------------------------------------------------------------
-async function fetchAiFiles(baseUrl) {
+// ================ FETCH AI FILES ================
+async function fetchAiFiles(baseUrl){
   const base = new URL(baseUrl).origin;
   const results = { llmsTxt:null, robotsTxt:null, sitemapXml:false, sitemapUrl:null, llmsTxtStatus:'absent', robotsTxtStatus:'absent', sitemapStatus:'absent' };
   const isHtmlOrTrash = (t)=> /^<(!doctype|html|!--|saved from)/i.test(t.substring(0,400).toLowerCase()) || /<html[\s>]/i.test(t.substring(0,200));
   const isXmlSitemap = (t)=> /<urlset|<sitemapindex/i.test(t.substring(0,600));
-  async function tryFetch(pathOrUrl) {
+  async function tryFetch(pathOrUrl){
     const fullUrl = pathOrUrl.startsWith('http')?pathOrUrl:base+pathOrUrl;
-    try {
+    try{
       const r = await fetch(`/api/fetch-page?raw=1&url=${encodeURIComponent(fullUrl)}`);
-      if (r.ok) {
+      if(r.ok){
         const txt = await r.text();
-        return { content: txt, status: 'found' };
+        return { content:txt, status:'found' };
       }
-      return { content: null, status: r.status === 404 ? 'absent' : 'unreachable' };
-    } catch(e) {
-      return { content: null, status: 'unreachable' };
-    }
+      return { content:null, status:r.status===404?'absent':'unreachable' };
+    }catch(e){ return { content:null, status:'unreachable' }; }
   }
   const rb = await tryFetch('/robots.txt');
   if(rb.status==='found' && rb.content && !isHtmlOrTrash(rb.content)){ results.robotsTxt=rb.content.substring(0,1200); results.robotsTxtStatus='found'; }
@@ -414,7 +373,7 @@ async function fetchAiFiles(baseUrl) {
     const match = results.robotsTxt.match(/^Sitemap:\s*(.+)$/im);
     if(match) sitemapPaths.unshift(match[1].trim());
   }
-  for(const path of sitemapPaths){
+  for(let path of sitemapPaths){
     if(results.sitemapXml) break;
     const sm = await tryFetch(path);
     if(sm.status==='found' && sm.content && isXmlSitemap(sm.content)){ results.sitemapXml=true; results.sitemapUrl=path.startsWith('http')?path:base+path; results.sitemapStatus='found'; break; }
@@ -422,129 +381,89 @@ async function fetchAiFiles(baseUrl) {
   return results;
 }
 
-// ----------------------------------------------------------------------
-// 7. ALGORITMO DI PUNTEGGIO MIGLIORATO (con log dettagliati)
-// ----------------------------------------------------------------------
+// ================ NUOVO ALGORITMO DI PUNTEGGIO (SOLO AI READINESS) ================
 function computeScores(signals, aiFiles, history, html) {
   if(!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
-  
   const allObjects = signals.jsonLd.flatMap(j=>j['@graph']||[j]);
   const person = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
-  const organizations = allObjects.filter(o=>['Organization','LocalBusiness','NGO','EducationalOrganization'].includes(o['@type']));
   const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
-  const hasGraph = JSON.stringify(signals.jsonLd).includes('"@graph"');
-  
-  // 1. LEGGIBILITÀ (max 100)
+  // 1. LEGGIBILITÀ AI (max 100)
   let l = 0;
-  if(signals.jsonLd.length>0){ l+=30; l+=isManual?25:10; if(hasGraph && isManual) l+=10; }
-  if(signals.title) l+=8;
-  if(signals.description && signals.description.length>50) l+=7;
+  if(signals.jsonLd.length>0){ l+=40; l+=isManual?30:10; if(JSON.stringify(signals.jsonLd).includes('"@graph"')) l+=10; }
+  if(signals.title) l+=5;
+  if(signals.description && signals.description.length>50) l+=5;
   if(signals.canonical) l+=5;
   if(signals.ogTitle && signals.ogDescription) l+=5;
   if(signals.h1s?.length) l+=5;
   if(html && /<(main|article|header|footer|section)/i.test(html)) l+=5;
-  if(aiFiles?.llmsTxt) l+=10;
+  if(aiFiles?.llmsTxt) l+=15;
   if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l+=10;
   l = Math.min(100,l);
-  
-  // 2. AUTORITÀ DIGITALE (max 100) – con conteggio subjectOf e log
+  // 2. COERENZA IDENTITÀ (solo allineamento testo, nessuna autorità esterna)
+  let c = 0;
+  if(signals.title && person?.name){
+    const titleNorm = signals.title.toLowerCase().replace(/[^\w\s]/g,'');
+    const nameNorm = person.name.toLowerCase().replace(/[^\w\s]/g,'');
+    if(titleNorm === nameNorm) c+=30;
+    else if(titleNorm.includes(nameNorm) || nameNorm.includes(titleNorm)) c+=20;
+    else c+=10;
+  } else if(signals.title) c+=5;
+  if(signals.description && person?.description){
+    const descNorm = signals.description.toLowerCase();
+    const persDescNorm = person.description.toLowerCase();
+    if(descNorm === persDescNorm) c+=25;
+    else if(descNorm.includes(persDescNorm) || persDescNorm.includes(descNorm)) c+=15;
+    else c+=5;
+  } else if(signals.description) c+=5;
+  if(signals.ogImage && person?.image && new URL(signals.ogImage).origin === new URL(person.image).origin) c+=15;
+  if(signals.canonical && signals.url && (signals.canonical===signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) c+=15;
+  if(person && person['@id']) c+=10;
+  if(person && person.sameAs && (Array.isArray(person.sameAs)?person.sameAs.length:1)>0) c+=5;
+  c = Math.min(100,c);
+  // 3. ACCESSIBILITÀ AI
+  let p = 0;
+  if(aiFiles?.llmsTxt) p+=50;
+  if(aiFiles?.robotsTxt){ if(/gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p+=35; else p+=20; }
+  if(aiFiles?.sitemapXml) p+=15;
+  p = Math.min(100,p);
+  // 4. PROFILO (solo proprietà strutturali)
+  let pr = 0;
+  if(person){
+    if(person.name) pr+=15;
+    if(person.description && person.description.length>50) pr+=15;
+    if(person.image) pr+=10;
+    if(person.jobTitle) pr+=15;
+    if(person.worksFor || person.affiliation) pr+=15;
+    const knows = person.knowsAbout;
+    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; pr+=Math.min(20, cnt*5); }
+    const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
+    let profLinks=0;
+    for(const link of sameAs){
+      if(/linkedin\.com/i.test(link)) profLinks+=5;
+      else if(/github\.com/i.test(link)) profLinks+=4;
+      else if(/orcid\.org/i.test(link)) profLinks+=5;
+      else profLinks+=1;
+    }
+    pr += Math.min(10, profLinks);
+    if(person.identifier) pr+=5;
+  }
+  pr = Math.min(100, Math.round(pr));
+  // 5. CONNESSIONE PROFESSIONALE (ex Autorità Digitale ma solo su link professionali e knowsAbout, niente citazioni)
   let g = 0;
   if(person){
     const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
     let kg=0;
     for(const link of sameAs){
-      if(/wikidata\.org/i.test(link)) kg+=20;
-      else if(/wikipedia\.org/i.test(link)) kg+=15;
-      else if(/linkedin\.com/i.test(link)) kg+=10;
-      else if(/github\.com/i.test(link)) kg+=8;
-      else if(/orcid\.org/i.test(link)) kg+=12;
-      else kg+=1;
+      if(/linkedin\.com/i.test(link)) kg+=15;
+      else if(/github\.com/i.test(link)) kg+=10;
+      else kg+=2;
     }
     g += Math.min(40, kg);
     const knows = person.knowsAbout;
-    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(20, cnt*5); }
-    if(person.worksFor || person.affiliation) g+=15;
-    if(person.memberOf) g+=5;
-  }
-  // subjectOf da organizzazioni
-  let subjectCount = 0;
-  for(const org of organizations){
-    if(org.subjectOf){
-      const subjects = Array.isArray(org.subjectOf)?org.subjectOf:[org.subjectOf];
-      subjectCount += subjects.length;
-    }
-  }
-  console.log(`[DEBUG] Trovate ${subjectCount} citazioni (subjectOf) nelle organizzazioni`);
-  g += Math.min(25, subjectCount * 8);
-  if(person?.identifier) g+=5;
-  if(person?.vatID) g+=3;
-  g = Math.min(100, g);
-  
-  // 3. COERENZA (max 100) – più permissiva
-  let c = 0;
-  if(signals.title && person?.name){
-    const titleName = signals.title.toLowerCase();
-    const personName = person.name.toLowerCase();
-    if(titleName === personName) c+=25;
-    else if(titleName.includes(personName) || personName.includes(titleName)) c+=15;
-    else c+=5;
-  } else if(signals.title) c+=5;
-  if(signals.description && person?.description){
-    const desc = signals.description.toLowerCase();
-    const persDesc = person.description.toLowerCase();
-    if(desc === persDesc) c+=20;
-    else if(desc.includes(persDesc) || persDesc.includes(desc)) c+=12;
-    else c+=5;
-  } else if(signals.description) c+=5;
-  if(signals.ogImage && person?.image && new URL(signals.ogImage).origin === new URL(person.image).origin) c+=10;
-  if(signals.canonical && signals.url && (signals.canonical===signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) c+=10;
-  const hasPersonId = person && person['@id'];
-  const hasOrgIds = organizations.some(o=>o['@id']);
-  if(hasPersonId && hasOrgIds) c+=20;
-  else if(hasPersonId || hasOrgIds) c+=10;
-  if(person && (person.sameAs?.length||0) >= 2) c+=10;
-  c += Math.min(10, history.bonus);
-  c = Math.min(100, c);
-  
-  // 4. ACCESSIBILITÀ AI (max 100)
-  let p = 0;
-  if(aiFiles?.llmsTxt) p+=50;
-  if(aiFiles?.robotsTxt && /gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p+=35;
-  else if(aiFiles?.robotsTxt) p+=20;
-  if(aiFiles?.sitemapXml) p+=15;
-  p = Math.min(100, p);
-  
-  // 5. PROFILO (max 100)
-  let pr = 0;
-  if(person){
-    if(person.name) pr+=5;
-    if(person.description && person.description.length>100) pr+=5;
-    if(person.image) pr+=5;
-    if(person.jobTitle) pr+=10;
-    if(person.worksFor || person.affiliation) pr+=10;
-    const knows = person.knowsAbout;
-    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; pr+=Math.min(25, cnt*6); }
-    if(person.hasCredential) pr+=5;
-    const awards = person.award;
-    if(awards){ const cnt=Array.isArray(awards)?awards.length:1; pr+=Math.min(10, cnt*4); }
-    const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
-    let profPoints=0;
-    for(const link of sameAs){
-      if(/linkedin\.com/i.test(link)) profPoints+=8;
-      else if(/github\.com/i.test(link)) profPoints+=6;
-      else if(/orcid\.org/i.test(link)) profPoints+=10;
-      else if(/researchgate\.net/i.test(link)) profPoints+=7;
-      else if(/twitter\.com|x\.com/i.test(link)) profPoints+=2;
-      else profPoints+=1;
-    }
-    pr += Math.min(20, profPoints);
-    if(person.identifier){ const ids=Array.isArray(person.identifier)?person.identifier:[person.identifier]; if(ids.some(id=>typeof id==='string'&&(id.includes('orcid')||id.includes('wikidata')||/Q\d+/.test(id)))) pr+=8; else pr+=3; }
-    if(person.vatID) pr+=2;
-    if(person.alumniOf) pr+=3;
-    if(person.memberOf) pr+=2;
-  }
-  pr = Math.min(100, Math.round(pr));
-  
+    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(30, cnt*8); }
+    if(person.worksFor || person.affiliation) g+=20;
+    g = Math.min(100, g);
+  } else g=50;
   const scores = { leggibilita:l, grafo:g, coerenza:c, politica:p, profilo:pr };
   scores.overall = Math.round(l*0.30 + g*0.25 + c*0.20 + p*0.15 + pr*0.10);
   console.log('FINAL SCORES:', scores);
@@ -552,10 +471,8 @@ function computeScores(signals, aiFiles, history, html) {
 }
 function normalizeUrl(raw){ raw=raw.trim().replace(/\s+/g,''); if(!raw) return null; if(/^@/.test(raw)) raw=raw.substring(1); if(!/^https?:\/\//i.test(raw)) raw='https://'+raw; try{ new URL(raw); return raw; }catch{return null;} }
 
-// ----------------------------------------------------------------------
-// 8. ANALISI PRINCIPALE
-// ----------------------------------------------------------------------
-async function runAnalysis() {
+// ================ ANALISI PRINCIPALE ================
+async function runAnalysis(){
   let url = document.getElementById('urlInput').value.trim();
   if(!url){ showErr(t('errNoUrl')); return; }
   url = normalizeUrl(url);
@@ -575,13 +492,10 @@ async function runAnalysis() {
   try{ aiFiles = await fetchAiFiles(url); }catch(e){ console.warn(e); }
   setStep(4);
   const scores = computeScores(signals, aiFiles, history, html);
-  
-  // Istruzioni per Gemini: commenti dettagliati
   const langInstruction = (LANG==='en')?'CRITICAL: Respond ENTIRELY in ENGLISH.\n\n':'';
   const toneInstructionDetail = (LANG==='en')
     ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable.'
     : 'TONO: Consulente. Fornisci commenti dettagliati (3-5 frasi per dimensione). Spiega perché ogni punto di forza o lacuna è rilevante. I passi operativi devono essere concreti e attuabili.';
-  
   const sysPrompt = langInstruction + (LANG==='en'?
     `You are an AI Identity expert. Respond ONLY with valid JSON.
     LOCKED SCORES (DO NOT CHANGE): Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Grafo:${scores.grafo}, Coerenza:${scores.coerenza}, Politica:${scores.politica}, Profilo:${scores.profilo}.
@@ -592,10 +506,9 @@ async function runAnalysis() {
     Storia dominio: ${history.years.join(',')||'nessuno'}.
     Output: {"nome":"...","tipo":"Persona|Organizzazione","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Autorità Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n`)
     + `\n${toneInstructionDetail}\n`;
-  
-  const userMsg = signals ? `Analizza: ${url}\nPiattaforma: ${signals.platform||'unknown'}\nDati estratti (JSON-LD, meta):\n${JSON.stringify({title:signals.title,description:signals.description,ogTitle:signals.ogTitle,ogDescription:signals.ogDescription,jsonLd:signals.jsonLd},null,2)}` : `Pagina non accessibile: ${url}`;
+  const userMsg = signals ? `Analizza: ${url}\nPiattaforma: ${signals.platform||'unknown'}\nDati estratti:\n${JSON.stringify({title:signals.title,description:signals.description,ogTitle:signals.ogTitle,ogDescription:signals.ogDescription,jsonLd:signals.jsonLd},null,2)}` : `Pagina non accessibile: ${url}`;
   const geminiBody = JSON.stringify({ system_instruction:{parts:[{text:sysPrompt}]}, contents:[{role:'user',parts:[{text:userMsg}]}], generationConfig:{maxOutputTokens:2500,temperature:0.3} });
-  try {
+  try{
     const res = await fetch('/api/gemini-analyze', { method:'POST', headers:{'Content-Type':'application/json'}, body:geminiBody });
     const rawText = await res.text();
     if(!res.ok) throw new Error(`${t('errApi')} ${res.status}`);
@@ -607,12 +520,14 @@ async function runAnalysis() {
     if(start===-1||end===-1) throw new Error(t('errNoJson'));
     const parsed = JSON.parse(clean.substring(start,end+1));
     renderResults(parsed, signals, aiFiles, scores);
-  } catch(err){ document.getElementById('loadingSection').style.display='none'; document.getElementById('inputSection').style.opacity='1'; document.getElementById('btnAnalyze').disabled=false; showErr('Errore: '+err.message); }
+  }catch(err){
+    document.getElementById('loadingSection').style.display='none';
+    document.getElementById('inputSection').style.opacity='1';
+    document.getElementById('btnAnalyze').disabled=false;
+    showErr('Errore: '+err.message);
+  }
 }
 
-// ----------------------------------------------------------------------
-// 9. RENDER (con mappa ID e fallback)
-// ----------------------------------------------------------------------
 function sc(s){ return s>=65?'#2DB885':s>=40?'#D4870E':'#D84F35'; }
 function scoreToRating(score){
   if(score>=80) return { label:(LANG==='en'?'Excellent':'Eccellente'), color:'#2DB885' };
@@ -620,7 +535,7 @@ function scoreToRating(score){
   if(score>=40) return { label:(LANG==='en'?'Sufficient':'Sufficiente'), color:'#D4870E' };
   return { label:(LANG==='en'?'Poor':'Scarso'), color:'#D84F35' };
 }
-function renderResults(d, signals, aiFiles, scores) {
+function renderResults(d, signals, aiFiles, scores){
   d.score = scores.overall;
   const idMap = { leggibilita:'leggibilita', leggibilità:'leggibilita', grafo:'grafo', autorita:'grafo', autorità:'grafo', coerenza:'coerenza', politica:'politica', accessibilita:'politica', accessibilità:'politica', profilo:'profilo' };
   const scoreMap = { leggibilita:scores.leggibilita, grafo:scores.grafo, coerenza:scores.coerenza, politica:scores.politica, profilo:scores.profilo };
@@ -633,15 +548,14 @@ function renderResults(d, signals, aiFiles, scores) {
       {id:'profilo', nome:(LANG==='en'?'Profile & Expertise':'Profilo'), sintesi:'', gap:'', score:scores.profilo}
     ];
   } else {
-    d.dimensioni.forEach(dim => {
-      const stdId = idMap[dim.id] || dim.id;
-      if(scoreMap[stdId] !== undefined) dim.score = scoreMap[stdId];
-      if(dim.score === undefined || dim.score === null) dim.score = 0;
+    d.dimensioni.forEach(dim=>{
+      const stdId = idMap[dim.id]||dim.id;
+      if(scoreMap[stdId]!==undefined) dim.score = scoreMap[stdId];
+      if(dim.score===undefined || dim.score===null) dim.score=0;
       if(dim.id==='grafo'||dim.id==='autorita') dim.nome = (LANG==='en'?'Digital Authority':'Autorità Digitale');
       if(dim.id==='politica'||dim.id==='accessibilita') dim.nome = (LANG==='en'?'AI Accessibility':'Accessibilità AI');
     });
   }
-  
   document.getElementById('loadingSection').style.display='none';
   document.getElementById('inputSection').style.display='none';
   const R=40, circ=(2*Math.PI*R).toFixed(2), off=(circ-(d.score/100)*circ).toFixed(2), color=sc(d.score);
