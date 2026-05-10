@@ -427,7 +427,7 @@ async function fetchAiFiles(baseUrl) {
 }
 
 // ----------------------------------------------------------------------
-// 7. ALGORITMO DI PUNTEGGIO CORRETTO (TUTTE LE DIMENSIONI >80 per profilo eccellente)
+// 7. ALGORITMO DI PUNTEGGIO CORRETTO (VALORIZZA CITAZIONI, COERENZA, PROFILO)
 // ----------------------------------------------------------------------
 function computeScores(signals, aiFiles, history, html) {
   if(!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
@@ -438,7 +438,7 @@ function computeScores(signals, aiFiles, history, html) {
   const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
   const hasGraph = JSON.stringify(signals.jsonLd).includes('"@graph"');
   
-  // 1. LEGGIBILITÀ (max 100) – invariata, già buona
+  // 1. LEGGIBILITÀ (max 100)
   let l = 0;
   if(signals.jsonLd.length>0){ l+=30; l+=isManual?25:10; if(hasGraph && isManual) l+=10; }
   if(signals.title) l+=8;
@@ -451,7 +451,7 @@ function computeScores(signals, aiFiles, history, html) {
   if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l+=10;
   l = Math.min(100,l);
   
-  // 2. AUTORITÀ DIGITALE (max 100) – PESO FORTE SU CITAZIONI, SAMEAS, KNOWSABOUT
+  // 2. AUTORITÀ DIGITALE (max 100) – somma sameAs, knowsAbout, affiliazioni, subjectOf (da ORGANIZZAZIONI)
   let g = 0;
   if(person){
     // sameAs verso KG (max 40)
@@ -473,7 +473,7 @@ function computeScores(signals, aiFiles, history, html) {
     if(person.worksFor || person.affiliation) g+=15;
     if(person.memberOf) g+=5;
   }
-  // subjectOf da organizzazioni (fino a 25)
+  // subjectOf da TUTTE le organizzazioni (fino a 25 punti)
   let subjectPoints = 0;
   for(const org of organizations){
     if(org.subjectOf){
@@ -487,24 +487,26 @@ function computeScores(signals, aiFiles, history, html) {
   if(person?.vatID) g+=3;
   g = Math.min(100, g);
   
-  // 3. COERENZA (max 100)
+  // 3. COERENZA (max 100) – più permissiva e premia @id multipli, sameAs multipli, allineamento semantico
   let c = 0;
-  // Allineamento titoli (max 25)
+  // Allineamento titoli (max 20) – accetta similarità parziale
   let titleMatch = 0;
   if(signals.title && person?.name){
-    if(signals.title === person.name || signals.title.includes(person.name) || person.name.includes(signals.title)) titleMatch = 2;
+    if(signals.title === person.name) titleMatch = 2;
+    else if(signals.title.includes(person.name) || person.name.includes(signals.title)) titleMatch = 1.5;
     else titleMatch = 1;
   } else if(signals.title) titleMatch = 1;
-  if(signals.ogTitle && signals.title === signals.ogTitle) titleMatch++;
-  c += titleMatch * 8;
-  // Allineamento descrizione (max 20)
+  if(signals.ogTitle && signals.title === signals.ogTitle) titleMatch += 0.5;
+  c += Math.min(20, titleMatch * 8);
+  // Allineamento descrizione (max 15)
   let descMatch = 0;
   if(signals.description && person?.description){
-    if(signals.description === person.description || signals.description.includes(person.description)) descMatch = 2;
+    if(signals.description === person.description) descMatch = 2;
+    else if(signals.description.includes(person.description)) descMatch = 1.5;
     else descMatch = 1;
   } else if(signals.description) descMatch = 1;
-  if(signals.ogDescription && signals.description === signals.ogDescription) descMatch++;
-  c += descMatch * 7;
+  if(signals.ogDescription && signals.description === signals.ogDescription) descMatch += 0.5;
+  c += Math.min(15, descMatch * 6);
   // @id multipli (max 20)
   const hasPersonId = person && person['@id'];
   const hasOrgIds = organizations.some(o=>o['@id']);
@@ -514,8 +516,8 @@ function computeScores(signals, aiFiles, history, html) {
   if(person && (person.sameAs?.length||0) >= 2) c+=15;
   // canonical (max 10)
   if(signals.canonical && signals.url && (signals.canonical===signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) c+=10;
-  // storia dominio (max 10)
-  c += Math.min(10, history.bonus);
+  // storia dominio (max 5)
+  c += Math.min(5, history.bonus);
   c = Math.min(100, c);
   
   // 4. ACCESSIBILITÀ AI (max 100)
@@ -526,7 +528,7 @@ function computeScores(signals, aiFiles, history, html) {
   if(aiFiles?.sitemapXml) p+=15;
   p = Math.min(100, p);
   
-  // 5. PROFILO (max 100) – valorizza knowsAbout, sameAs professionali, descrizione lunga
+  // 5. PROFILO (max 100) – valorizza knowsAbout e sameAs professionali
   let pr = 0;
   if(person){
     // identità base (max 15)
@@ -539,7 +541,7 @@ function computeScores(signals, aiFiles, history, html) {
     // competenze (max 25)
     const knows = person.knowsAbout;
     if(knows){ const cnt=Array.isArray(knows)?knows.length:1; pr+=Math.min(25, cnt*6); }
-    // credenziali / award (max 10) – anche se assenti non penalizza, ma se presenti bonus
+    // credenziali / award (max 10 – non penalizza se assenti)
     if(person.hasCredential) pr+=5;
     const awards = person.award;
     if(awards){ const cnt=Array.isArray(awards)?awards.length:1; pr+=Math.min(10, cnt*4); }
