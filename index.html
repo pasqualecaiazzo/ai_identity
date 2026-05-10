@@ -329,7 +329,7 @@ function resetTool() {
 }
 
 // ----------------------------------------------------------------------
-// 3. CHIEDE CRONOLOGIA DOMINIO (tramite proxy per evitare CORS)
+// 3. CHIEDE CRONOLOGIA DOMINIO (tramite proxy, timeout aumentato)
 // ----------------------------------------------------------------------
 async function checkDomainHistory(url) {
   const domain = new URL(url).hostname;
@@ -341,17 +341,13 @@ async function checkDomainHistory(url) {
     const ts = new Date(now.getFullYear()-y, now.getMonth(), now.getDate()).toISOString().slice(0,10).replace(/-/g,'');
     try {
       const proxyUrl = `/api/fetch-page?url=${encodeURIComponent(`https://archive.org/wayback/available?url=${domain}&timestamp=${ts}`)}`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(proxyUrl, { signal: controller.signal });
-      clearTimeout(timeout);
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
       const data = await res.json();
-      // Il proxy restituisce { contents: "..." } (raw text) oppure direttamente l'oggetto.
       let parsed;
       if (data.contents) parsed = JSON.parse(data.contents);
       else parsed = data;
       if (parsed.archived_snapshots?.closest) { found.push(y); return true; }
-    } catch(e) { console.warn(`Wayback check failed for ${y} years:`, e); }
+    } catch(e) { console.warn(`Wayback check failed for ${y} years:`, e.message); }
     return false;
   });
   await Promise.all(checks);
@@ -362,7 +358,7 @@ async function checkDomainHistory(url) {
 }
 
 // ----------------------------------------------------------------------
-// 4. FETCH PAGINA (con fallback su proxy multipli)
+// 4. FETCH PAGINA (con fallback su proxy)
 // ----------------------------------------------------------------------
 async function fetchWithTimeout(url, ms) {
   const ctrl = new AbortController();
@@ -591,48 +587,139 @@ async function fetchAiFiles(baseUrl) {
 }
 
 // ----------------------------------------------------------------------
-// 7. CALCOLO PUNTEGGI (SIGNALS PUÒ ESSERE NULL)
+// 7. CALCOLO PUNTEGGI COMPLETO (5 dimensioni, sottocriteri)
 // ----------------------------------------------------------------------
-function computeScores(signals, aiFiles, history) {
-  // Se non abbiamo segnali (pagina non accessibile), ritorna punteggi di default bassi
+function computeScores(signals, aiFiles, history, html) {
   if (!signals) {
     return { leggibilita: 20, grafo: 20, coerenza: 20, politica: 20, profilo: 20, overall: 20 };
   }
   let l = 0, g = 0, c = 0, p = 0, pr = 0;
-  const ld = JSON.stringify(signals.jsonLd || "");
-  // 1. Leggibilità
+  const mainEntity = signals.jsonLd.flatMap(j => j['@graph'] || [j]).find(o => o['@type'] === 'Person' || o['@type'] === 'ProfilePage');
+  const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
+  
+  // 1. LEGGIBILITÀ AI (max 100)
   if (signals.jsonLd.length > 0) {
-    l += signals.jsonLdQuality?.isPlugin ? 25 : 45;
-    if (ld.includes('"@graph"')) l += 15;
+    l += 30; // presenza base
+    l += isManual ? 20 : 8; // manuale vs plugin
   }
-  if (signals.description) l += 20;
-  if (signals.title) l += 20;
-  // 2. Grafo / disambiguazione
-  if (ld.includes('knowsAbout')) {
-    g += 20;
-    if (ld.match(/knowsAbout[^}]*(wikidata|wikipedia|google\.com\/kg|@id)/i)) g += 30;
+  // meta tag essenziali
+  if (signals.title) l += 5;
+  if (signals.description && signals.description.length > 50) l += 5;
+  if (signals.canonical) l += 3;
+  if (signals.ogTitle && signals.ogDescription) l += 2 + 2;
+  // struttura HTML
+  if (signals.h1s && signals.h1s.length > 0) l += 8;
+  if (html && /<(main|article|header|footer|section)/i.test(html)) l += 7;
+  // file di servizio
+  if (aiFiles?.llmsTxt) l += 10;
+  if (aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l += 10;
+  l = Math.min(100, l);
+  
+  // 2. AUTORITÀ DIGITALE (max 100)
+  if (mainEntity) {
+    // sameAs verso Knowledge Graph
+    const sameAs = Array.isArray(mainEntity.sameAs) ? mainEntity.sameAs : (mainEntity.sameAs ? [mainEntity.sameAs] : []);
+    let kgPoints = 0;
+    for (const link of sameAs) {
+      if (/wikidata\.org/i.test(link)) kgPoints += 15;
+      else if (/wikipedia\.org/i.test(link)) kgPoints += 10;
+      else if (/linkedin\.com/i.test(link)) kgPoints += 5;
+      else if (/github\.com/i.test(link)) kgPoints += 2;
+      else kgPoints += 1;
+    }
+    g += Math.min(30, kgPoints);
+    // knowsAbout
+    const knows = mainEntity.knowsAbout;
+    if (knows) {
+      const count = Array.isArray(knows) ? knows.length : 1;
+      g += Math.min(20, count * 5);
+    }
+    // worksFor / affiliation
+    if (mainEntity.worksFor || mainEntity.affiliation) g += 15;
+    if (mainEntity.memberOf) g += 5;
+    // subjectOf (citazioni)
+    if (mainEntity.subjectOf) g += 15;
+    // identifier univoci
+    if (mainEntity.identifier) g += 10;
+    if (mainEntity.vatID) g += 5;
   }
-  if (ld.includes('wikidata.org')) g += 20;
-  if (ld.includes('linkedin.com')) g += 15;
-  if (ld.includes('github.com')) g += 15;
-  // 3. Coerenza & storia
-  if (ld.includes('"@id"')) c += 40;
-  c += history ? history.bonus : 0;
-  if ((signals.sameAs?.length || 0) > 1) c += 40;
-  // 4. Accessibilità AI
-  if (aiFiles?.llmsTxt) p += 60;
-  if (aiFiles?.robotsTxt && /gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p += 40;
+  g = Math.min(100, g);
+  
+  // 3. COERENZA IDENTITÀ (max 100)
+  if (signals.title && signals.ogTitle) {
+    if (signals.title === signals.ogTitle || signals.title.includes(signals.ogTitle) || signals.ogTitle.includes(signals.title)) c += 10;
+  }
+  if (signals.title && mainEntity?.name) {
+    if (signals.title === mainEntity.name || signals.title.includes(mainEntity.name) || mainEntity.name.includes(signals.title)) c += 10;
+  }
+  if (signals.description && signals.ogDescription) {
+    if (signals.description === signals.ogDescription || signals.description.includes(signals.ogDescription)) c += 10;
+  }
+  if (signals.description && mainEntity?.description) {
+    if (signals.description === mainEntity.description || signals.description.includes(mainEntity.description)) c += 10;
+  }
+  if (signals.ogImage && mainEntity?.image && new URL(signals.ogImage).origin === new URL(mainEntity.image).origin) c += 10;
+  if (signals.canonical && signals.url && (signals.canonical === signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) c += 10;
+  c += history.bonus; // max 20
+  c = Math.min(100, c);
+  
+  // 4. ACCESSIBILITÀ AI (max 100)
+  if (aiFiles?.llmsTxt) p += 40;
+  if (aiFiles?.robotsTxt && /gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p += 30;
   else if (aiFiles?.robotsTxt) p += 20;
-  // 5. Profilo
-  if (ld.includes('jobTitle')) pr += 40;
-  if (ld.includes('hasCredential') || ld.includes('award')) pr += 30;
-  if (ld.includes('image')) pr += 30;
-  const cap = v => Math.min(100, Math.round(v));
-  const scores = {
-    leggibilita: cap(l), grafo: cap(g), coerenza: cap(c),
-    politica: cap(p), profilo: cap(pr)
-  };
-  scores.overall = Math.round(scores.leggibilita*0.3 + scores.grafo*0.25 + scores.coerenza*0.2 + scores.politica*0.15 + scores.profilo*0.1);
+  if (aiFiles?.sitemapXml) p += 15;
+  // .well-known/ai-plugin.json (opzionale, lo controlleremo da segnale esterno? non abbiamo fetch, ma possiamo aggiungere un +5 se esiste? omesso per ora)
+  p = Math.min(100, p);
+  
+  // 5. PROFILO E COMPETENZE (max 100) - versione avanzata
+  if (mainEntity) {
+    // identità base (max 20)
+    if (mainEntity.name) pr += 8;
+    if (mainEntity.description && mainEntity.description.length > 50) pr += 7;
+    if (mainEntity.image) pr += 5;
+    // ruolo (max 20)
+    if (mainEntity.jobTitle) pr += 8;
+    if (mainEntity.worksFor || mainEntity.affiliation) pr += 7;
+    if (mainEntity.hasOccupation) pr += 5;
+    // competenze (max 15)
+    const knowsAbout = mainEntity.knowsAbout;
+    if (knowsAbout) {
+      const count = Array.isArray(knowsAbout) ? knowsAbout.length : 1;
+      pr += Math.min(15, count * 5);
+    }
+    // credenziali e award (max 15)
+    if (mainEntity.hasCredential) pr += 5;
+    const awards = mainEntity.award;
+    if (awards) {
+      const awardCount = Array.isArray(awards) ? awards.length : 1;
+      pr += Math.min(10, awardCount * 4);
+    }
+    // sameAs verso piattaforme (max 10, già conteggiato in autorità, ma qui diamo un piccolo bonus)
+    const sameAs = Array.isArray(mainEntity.sameAs) ? mainEntity.sameAs : (mainEntity.sameAs ? [mainEntity.sameAs] : []);
+    let profileLinks = 0;
+    for (const link of sameAs) {
+      if (/linkedin\.com/i.test(link)) profileLinks += 4;
+      else if (/github\.com/i.test(link)) profileLinks += 3;
+      else if (/orcid\.org/i.test(link)) profileLinks += 5;
+      else if (/researchgate\.net/i.test(link)) profileLinks += 4;
+      else profileLinks += 1;
+    }
+    pr += Math.min(10, profileLinks);
+    // identificatori univoci (max 10)
+    if (mainEntity.identifier) {
+      const ids = Array.isArray(mainEntity.identifier) ? mainEntity.identifier : [mainEntity.identifier];
+      if (ids.some(id => typeof id === 'string' && (id.includes('orcid') || id.includes('wikidata') || /Q\d+/.test(id)))) pr += 7;
+      else pr += 3;
+    }
+    if (mainEntity.vatID) pr += 3;
+    // formazione e associazioni (max 5)
+    if (mainEntity.alumniOf) pr += 3;
+    if (mainEntity.memberOf) pr += 2;
+  }
+  pr = Math.min(100, Math.round(pr));
+  
+  const scores = { leggibilita: l, grafo: g, coerenza: c, politica: p, profilo: pr };
+  scores.overall = Math.round(l*0.30 + g*0.25 + c*0.20 + p*0.15 + pr*0.10);
   return scores;
 }
 
@@ -645,7 +732,7 @@ function normalizeUrl(raw) {
 }
 
 // ----------------------------------------------------------------------
-// 8. ANALISI PRINCIPALE (runAnalysis) – CORRETTA
+// 8. ANALISI PRINCIPALE (runAnalysis)
 // ----------------------------------------------------------------------
 async function runAnalysis() {
   let url = document.getElementById('urlInput').value.trim();
@@ -668,7 +755,7 @@ async function runAnalysis() {
   let aiFiles = { llmsTxt: null, robotsTxt: null, sitemapXml: false, llmsTxtStatus: 'absent', robotsTxtStatus: 'absent', sitemapStatus: 'absent' };
   try { aiFiles = await fetchAiFiles(url); } catch(e) { console.warn('fetchAiFiles error', e); }
   setStep(4);
-  const scores = computeScores(signals, aiFiles, history);
+  const scores = computeScores(signals, aiFiles, history, html);
   console.log('Computed scores:', JSON.stringify(scores));
   
   const langInstruction = (LANG === 'en') ? 'CRITICAL INSTRUCTION: You must respond ENTIRELY in ENGLISH. Every single field in your JSON response must be written in English. Do not use Italian anywhere.\n\n' : '';
@@ -687,9 +774,9 @@ Proprietà INESISTENTI che non devono MAI essere suggerite: dataUsagePolicy, con
   const toneDescriptions = {
     1: (LANG === 'en') ? 'TONE 1 — EXECUTIVE: Zero technical jargon. Every concept must have a clear business impact. Use metaphors and analogies. Next steps must be actions a CEO can understand and delegate in 10 seconds.' : 'TONO 1 — IMPRENDITORE: Zero gergo tecnico. Ogni concetto deve avere un impatto di business chiaro. Usa metafore e analogie. I prossimi passi devono essere azioni che un CEO può capire e delegare in 10 secondi.',
     2: (LANG === 'en') ? 'TONE 2 — MANAGER: Minimal technical jargon, always explained. Focus on measurable results and concrete opportunities.' : 'TONO 2 — MANAGER: Poco gergo tecnico, sempre spiegato. Focus su risultati misurabili e opportunità concrete.',
-    3: (LANG === 'en') ? 'TONE 3 — CONSULTANT: Balanced. Use technical terms when necessary but explain them. Mix of business impact and operational details.' : 'TONO 3 — CONSULENTE: Bilanciato. Usa termini tecnici quando necessario ma spiegali. Mix tra impatto business e dettagli operativi.',
+    3: (LANG === 'en') ? `TONE 3 — CONSULTANT: Balanced. Never use unexplained technical terms. Always explain what a term means for the identity or business. Example: instead of "JSON-LD" say "the structured data that describes who you are". Instead of "sameAs" say "links to your profiles on other platforms". Every gap must be an opportunity, every step an actionable manager-friendly task.` : `TONO 3 — CONSULENTE: Bilanciato. Mai usare termini tecnici senza spiegarli. Ogni concetto deve essere tradotto in opportunità o azione manageriale. Esempio: invece di "JSON-LD" dire "i dati strutturati che descrivono chi sei". Invece di "sameAs" dire "i link ai tuoi profili su altre piattaforme". I gap devono essere descritti come opportunità di miglioramento, non come difetti.`,
     4: (LANG === 'en') ? 'TONE 4 — DEVELOPER: Correct technical language. You can use terms like JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap without explaining them. Next steps must be specific technical actions.' : 'TONO 4 — SVILUPPATORE: Linguaggio tecnico corretto. Puoi usare termini come JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap senza spiegarli. I prossimi passi devono essere azioni tecniche specifiche.',
-    5: (LANG === 'en') ? 'TONE 5 — AI EXPERT: Maximum technical detail. Deep analysis of every signal. Use all specialized terminology: Knowledge Graph, entity disambiguation, training data, crawler directives, structured data richness.' : 'TONO 5 — ESPERTO AI: Massimo dettaglio tecnico. Analisi approfondita di ogni segnale. Usa tutta la terminologia specializzata: Knowledge Graph, entity disambiguation, training data, crawler directives.',
+    5: (LANG === 'en') ? 'TONE 5 — AI EXPERT: Maximum technical detail. Deep analysis of every signal. Use all specialized terminology: Knowledge Graph, entity disambiguation, training data, crawler directives.' : 'TONO 5 — ESPERTO AI: Massimo dettaglio tecnico. Analisi approfondita di ogni segnale. Usa tutta la terminologia specializzata: Knowledge Graph, entity disambiguation, training data, crawler directives.',
   };
   
   const sysPrompt = langInstruction + schemaConstraint + (
@@ -705,7 +792,7 @@ Proprietà INESISTENTI che non devono MAI essere suggerite: dataUsagePolicy, con
       4. AI ACCESSIBILITY — Have you prepared the site for the AI era?
       5. PROFILE & EXPERTISE — How recognizable and specific are you?
 
-      Respond ONLY with valid JSON. Do NOT include "score" fields:
+      Respond ONLY with valid JSON. Do NOT include "score" fields. Use the following structure:
       {"nome":"...","tipo":"Person|Organization|Brand|E-commerce|Product","percezione_ai":"3-5 sentences","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Digital Authority","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"politica","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile & Expertise","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[],"sintesi":"..."}\n` :
       `Sei un esperto di AI Identity. Rispondi SOLO con JSON valido. 
       PUNTEGGI BLOCCATI (NON MODIFICARE): Overall: ${scores.overall}, Leggibilita: ${scores.leggibilita}, Grafo: ${scores.grafo}, Coerenza: ${scores.coerenza}, Politica: ${scores.politica}, Profilo: ${scores.profilo}.
@@ -718,7 +805,7 @@ Proprietà INESISTENTI che non devono MAI essere suggerite: dataUsagePolicy, con
       4. ACCESSIBILITÀ AI — Hai preparato il sito per l'era dell'AI?
       5. PROFILO E COMPETENZE — Quanto sei riconoscibile e specifico?
 
-      Rispondi SOLO con JSON valido. NON includere campi "score":
+      Rispondi SOLO con JSON valido. NON includere campi "score". Usa questa struttura:
       {"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi","dimensioni":[{"id":"leggibilita","nome":"Leggibilita AI","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identita","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilita AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[],"sintesi":"..."}\n`)
   ) + '\nREQUIRED DETAIL LEVEL: ' + TONE + '/5 — ' + t('toneLevels')[TONE-1] + '\n' + toneDescriptions[TONE] + '\n';
   
@@ -795,9 +882,15 @@ FILE AI:
 }
 
 // ----------------------------------------------------------------------
-// 9. RENDER DEI RISULTATI (con fallback per dimensioni mancanti)
+// 9. FUNZIONI DI RENDER (con giudizi testuali e fallback)
 // ----------------------------------------------------------------------
 function sc(s) { return s >= 65 ? '#2DB885' : s >= 40 ? '#D4870E' : '#D84F35'; }
+function scoreToRating(score) {
+  if (score >= 80) return { label: (LANG==='en' ? 'Excellent' : 'Eccellente'), color: '#2DB885' };
+  if (score >= 60) return { label: (LANG==='en' ? 'Good' : 'Buono'), color: '#A9C94C' };
+  if (score >= 40) return { label: (LANG==='en' ? 'Sufficient' : 'Sufficiente'), color: '#D4870E' };
+  return { label: (LANG==='en' ? 'Poor' : 'Scarso'), color: '#D84F35' };
+}
 
 function renderResults(d, signals, aiFiles, scores) {
   d.score = scores.overall;
@@ -809,7 +902,6 @@ function renderResults(d, signals, aiFiles, scores) {
       if (dim.id === 'politica') dim.nome = (LANG === 'en' ? "AI Accessibility" : "Accessibilità AI");
     });
   } else {
-    // fallback se Gemini non ha restituito dimensioni
     d.dimensioni = [
       { id: 'leggibilita', nome: (LANG === 'en' ? 'AI Readability' : 'Leggibilità AI'), sintesi: 'Dati insufficienti', gap: '', score: scores.leggibilita },
       { id: 'grafo', nome: (LANG === 'en' ? 'Digital Authority' : 'Autorevolezza Digitale'), sintesi: 'Dati insufficienti', gap: '', score: scores.grafo },
@@ -822,6 +914,7 @@ function renderResults(d, signals, aiFiles, scores) {
   document.getElementById('loadingSection').style.display = 'none';
   document.getElementById('inputSection').style.display = 'none';
   const R = 40, circ = (2 * Math.PI * R).toFixed(2), off = (circ - (d.score/100)*circ).toFixed(2), color = sc(d.score);
+  const ratingTotal = scoreToRating(d.score);
   
   document.getElementById('scoreHeroWrap').innerHTML = `<div class="score-hero">
     <div class="ring-wrap">
@@ -834,6 +927,7 @@ function renderResults(d, signals, aiFiles, scores) {
       <div class="ring-center">
         <span class="ring-num" id="scoreNum" style="color:${color}">0</span>
         <span class="ring-sub">/100</span>
+        <div style="font-size:.45rem; color:${ratingTotal.color}; margin-top:4px;">${ratingTotal.label}</div>
       </div>
     </div>
     <div class="hero-info">
@@ -858,8 +952,7 @@ function renderResults(d, signals, aiFiles, scores) {
     const trapped = window._fetchTrapped || (!signals && window._fetchTrapped !== false);
     const tags = [
       ...(trapped ? [{l: '⚠ Pagina con redirect JS — dati parziali', v: false, warn: true}] : []),
-      {l: 'JSON-LD', v: signals?.jsonLd?.length > 0},
-      {l: jq?.isPlugin ? `Plugin (${jq.source.split(' ')[0]})` : 'Schema manuale', v: signals?.jsonLd?.length > 0, warn: jq?.isPlugin},
+      {l: signals?.jsonLd?.length > 0 ? (jq?.isPlugin ? `⚠️ Plugin (${jq.source.split(' ')[0]})` : '✅ Schema manuale') : 'JSON-LD assente', v: signals?.jsonLd?.length > 0, warn: jq?.isPlugin},
       {l: 'sameAs', v: (signals?.sameAs?.length || 0) > 0},
       {l: 'Wikidata', v: jq?.hasWikidata || false},
       {l: 'Wikipedia', v: jq?.hasWikipedia || false},
@@ -874,16 +967,28 @@ function renderResults(d, signals, aiFiles, scores) {
     </div>`;
   }
   
-  document.getElementById('dimsGrid').innerHTML = (d.dimensioni || []).map(dim => `
-    <div class="dim-card">
-      <div class="dim-top">
-        <div class="dim-name">${dim.nome}</div>
-        <div class="dim-score-n" style="color:${sc(dim.score)}">${dim.score}</div>
-      </div>
-      <div class="bar-bg"><div class="bar-fill" data-w="${dim.score}" style="background:${sc(dim.score)}"></div></div>
-      <div class="dim-sintesi">${dim.sintesi}</div>
-      ${dim.gap ? `<div class="dim-gap">${dim.gap}</div>` : ''}
-    </div>`).join('');
+  document.getElementById('dimsGrid').innerHTML = (d.dimensioni || []).map(dim => {
+    const rating = scoreToRating(dim.score);
+    return `
+      <div class="dim-card">
+        <div class="dim-top">
+          <div class="dim-name">${dim.nome}</div>
+          <div style="text-align:right">
+            <div class="dim-score-n" style="color:${sc(dim.score)}">${dim.score}</div>
+            <div style="font-size:.6rem; color:${rating.color}">${rating.label}</div>
+          </div>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" data-w="${dim.score}" style="background:${sc(dim.score)}"></div></div>
+        <div class="dim-sintesi">${dim.sintesi}</div>
+        ${dim.gap && dim.gap !== 'undefined' ? `<div class="dim-gap">${dim.gap}</div>` : ''}
+      </div>`;
+  }).join('');
+  
+  // Fallback per passi malformati
+  let passi = (d.passi || []).filter(p => p && typeof p === 'object' && p.a);
+  if (passi.length === 0 && (d.lacune && d.lacune.length > 0)) {
+    passi = [{ p: 'media', a: 'Rivedi la configurazione del JSON restituito da Gemini per l\'array "passi".' }];
+  }
   
   document.getElementById('bottomGrid').innerHTML = `
     <div class="bottom-card">
@@ -896,7 +1001,7 @@ function renderResults(d, signals, aiFiles, scores) {
     </div>
     <div class="bottom-card">
       <div class="bottom-title" style="color:#D4870E">${LANG==='en' ? 'Next steps' : 'Prossimi passi'}</div>
-      ${(d.passi || []).map(p => `<div class="step-item">
+      ${passi.map(p => `<div class="step-item">
         <div class="step-p" style="color:${p.p==='alta'||p.p==='high'?'#D84F35':p.p==='media'||p.p==='medium'?'#D4870E':'#8080A0'}">↑ ${p.p}</div>
         <div class="step-a">${p.a}</div>
       </div>`).join('')}
