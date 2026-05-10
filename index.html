@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Readability Scanner – Identity & Semantics</title>
+<title>AI Readability Scanner – Coerenza & Leggibilità</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-/* ===== STILI (identici a prima, invariati) ===== */
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#07070F;--surface:#0D0D1C;--surface2:#111120;
@@ -189,7 +188,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
   <div class="footer" id="i18n-footer"></div>
 </div>
-
 <script>
 // =======================  LINGUE E UI  =======================
 let TONE = 3;
@@ -381,91 +379,87 @@ async function fetchAiFiles(baseUrl){
   return results;
 }
 
-// ================ NUOVO ALGORITMO DI PUNTEGGIO (SOLO AI READINESS) ================
+// ================ ALGORITMO DI PUNTEGGIO (SOLO AI READINESS, NO CITAZIONI ESTERNE) ================
 function computeScores(signals, aiFiles, history, html) {
-  if(!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
+  if(!signals) return { leggibilita:20, connessione:20, coerenza:20, accessibilita:20, profilo:20, overall:20 };
   const allObjects = signals.jsonLd.flatMap(j=>j['@graph']||[j]);
   const person = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
   const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
+  
   // 1. LEGGIBILITÀ AI (max 100)
-  let l = 0;
-  if(signals.jsonLd.length>0){ l+=40; l+=isManual?30:10; if(JSON.stringify(signals.jsonLd).includes('"@graph"')) l+=10; }
-  if(signals.title) l+=5;
-  if(signals.description && signals.description.length>50) l+=5;
-  if(signals.canonical) l+=5;
-  if(signals.ogTitle && signals.ogDescription) l+=5;
-  if(signals.h1s?.length) l+=5;
-  if(html && /<(main|article|header|footer|section)/i.test(html)) l+=5;
-  if(aiFiles?.llmsTxt) l+=15;
-  if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l+=10;
-  l = Math.min(100,l);
-  // 2. COERENZA IDENTITÀ (solo allineamento testo, nessuna autorità esterna)
-  let c = 0;
+  let leggibilita = 0;
+  if(signals.jsonLd.length>0){ leggibilita += 40; leggibilita += isManual ? 30 : 10; if(JSON.stringify(signals.jsonLd).includes('"@graph"')) leggibilita += 10; }
+  if(signals.title) leggibilita += 5;
+  if(signals.description && signals.description.length>50) leggibilita += 5;
+  if(signals.canonical) leggibilita += 5;
+  if(signals.ogTitle && signals.ogDescription) leggibilita += 5;
+  if(signals.h1s?.length) leggibilita += 5;
+  if(html && /<(main|article|header|footer|section)/i.test(html)) leggibilita += 5;
+  if(aiFiles?.llmsTxt) leggibilita += 15;
+  if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) leggibilita += 10;
+  leggibilita = Math.min(100, leggibilita);
+  
+  // 2. COERENZA IDENTITÀ (solo allineamento frontend/backend)
+  let coerenza = 0;
   if(signals.title && person?.name){
     const titleNorm = signals.title.toLowerCase().replace(/[^\w\s]/g,'');
     const nameNorm = person.name.toLowerCase().replace(/[^\w\s]/g,'');
-    if(titleNorm === nameNorm) c+=30;
-    else if(titleNorm.includes(nameNorm) || nameNorm.includes(titleNorm)) c+=20;
-    else c+=10;
-  } else if(signals.title) c+=5;
+    if(titleNorm === nameNorm) coerenza += 35;
+    else if(titleNorm.includes(nameNorm) || nameNorm.includes(titleNorm)) coerenza += 25;
+    else coerenza += 15;
+  } else if(signals.title) coerenza += 10;
   if(signals.description && person?.description){
     const descNorm = signals.description.toLowerCase();
     const persDescNorm = person.description.toLowerCase();
-    if(descNorm === persDescNorm) c+=25;
-    else if(descNorm.includes(persDescNorm) || persDescNorm.includes(descNorm)) c+=15;
-    else c+=5;
-  } else if(signals.description) c+=5;
-  if(signals.ogImage && person?.image && new URL(signals.ogImage).origin === new URL(person.image).origin) c+=15;
-  if(signals.canonical && signals.url && (signals.canonical===signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) c+=15;
-  if(person && person['@id']) c+=10;
-  if(person && person.sameAs && (Array.isArray(person.sameAs)?person.sameAs.length:1)>0) c+=5;
-  c = Math.min(100,c);
+    if(descNorm === persDescNorm) coerenza += 30;
+    else if(descNorm.includes(persDescNorm) || persDescNorm.includes(descNorm)) coerenza += 20;
+    else coerenza += 10;
+  } else if(signals.description) coerenza += 10;
+  if(signals.ogImage && person?.image && new URL(signals.ogImage).origin === new URL(person.image).origin) coerenza += 15;
+  if(signals.canonical && signals.url && (signals.canonical===signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) coerenza += 15;
+  if(person && person['@id']) coerenza += 10;
+  coerenza = Math.min(100, coerenza);
+  
   // 3. ACCESSIBILITÀ AI
-  let p = 0;
-  if(aiFiles?.llmsTxt) p+=50;
-  if(aiFiles?.robotsTxt){ if(/gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p+=35; else p+=20; }
-  if(aiFiles?.sitemapXml) p+=15;
-  p = Math.min(100,p);
-  // 4. PROFILO (solo proprietà strutturali)
-  let pr = 0;
+  let accessibilita = 0;
+  if(aiFiles?.llmsTxt) accessibilita += 50;
+  if(aiFiles?.robotsTxt){ if(/gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) accessibilita += 40; else accessibilita += 25; }
+  if(aiFiles?.sitemapXml) accessibilita += 10;
+  accessibilita = Math.min(100, accessibilita);
+  
+  // 4. PROFILO (completezza dei campi)
+  let profilo = 0;
   if(person){
-    if(person.name) pr+=15;
-    if(person.description && person.description.length>50) pr+=15;
-    if(person.image) pr+=10;
-    if(person.jobTitle) pr+=15;
-    if(person.worksFor || person.affiliation) pr+=15;
+    if(person.name) profilo += 15;
+    if(person.description && person.description.length>50) profilo += 15;
+    if(person.image) profilo += 10;
+    if(person.jobTitle) profilo += 15;
+    if(person.worksFor || person.affiliation) profilo += 15;
     const knows = person.knowsAbout;
-    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; pr+=Math.min(20, cnt*5); }
-    const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
-    let profLinks=0;
-    for(const link of sameAs){
-      if(/linkedin\.com/i.test(link)) profLinks+=5;
-      else if(/github\.com/i.test(link)) profLinks+=4;
-      else if(/orcid\.org/i.test(link)) profLinks+=5;
-      else profLinks+=1;
-    }
-    pr += Math.min(10, profLinks);
-    if(person.identifier) pr+=5;
-  }
-  pr = Math.min(100, Math.round(pr));
-  // 5. CONNESSIONE PROFESSIONALE (ex Autorità Digitale ma solo su link professionali e knowsAbout, niente citazioni)
-  let g = 0;
+    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; profilo += Math.min(20, cnt*5); }
+    if(person.identifier) profilo += 10;
+  } else { profilo = 20; }
+  profilo = Math.min(100, Math.round(profilo));
+  
+  // 5. CONNESSIONE PROFESSIONALE (solo LinkedIn, GitHub, knowsAbout, worksFor - niente giornali)
+  let connessione = 0;
   if(person){
     const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
-    let kg=0;
+    let socialPoints = 0;
     for(const link of sameAs){
-      if(/linkedin\.com/i.test(link)) kg+=15;
-      else if(/github\.com/i.test(link)) kg+=10;
-      else kg+=2;
+      if(/linkedin\.com/i.test(link)) socialPoints += 20;
+      else if(/github\.com/i.test(link)) socialPoints += 15;
+      else socialPoints += 2;
     }
-    g += Math.min(40, kg);
+    connessione += Math.min(40, socialPoints);
     const knows = person.knowsAbout;
-    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(30, cnt*8); }
-    if(person.worksFor || person.affiliation) g+=20;
-    g = Math.min(100, g);
-  } else g=50;
-  const scores = { leggibilita:l, grafo:g, coerenza:c, politica:p, profilo:pr };
-  scores.overall = Math.round(l*0.30 + g*0.25 + c*0.20 + p*0.15 + pr*0.10);
+    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; connessione += Math.min(35, cnt*7); }
+    if(person.worksFor || person.affiliation) connessione += 25;
+    connessione = Math.min(100, connessione);
+  } else connessione = 50;
+  
+  const scores = { leggibilita, connessione, coerenza, accessibilita, profilo };
+  scores.overall = Math.round(leggibilita*0.30 + connessione*0.20 + coerenza*0.25 + accessibilita*0.15 + profilo*0.10);
   console.log('FINAL SCORES:', scores);
   return scores;
 }
@@ -494,17 +488,17 @@ async function runAnalysis(){
   const scores = computeScores(signals, aiFiles, history, html);
   const langInstruction = (LANG==='en')?'CRITICAL: Respond ENTIRELY in ENGLISH.\n\n':'';
   const toneInstructionDetail = (LANG==='en')
-    ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable.'
-    : 'TONO: Consulente. Fornisci commenti dettagliati (3-5 frasi per dimensione). Spiega perché ogni punto di forza o lacuna è rilevante. I passi operativi devono essere concreti e attuabili.';
+    ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable.\n\nCRITICAL: Do NOT mention Wikipedia, Wikidata, news articles, citations, or external authority. Focus ONLY on structured data completeness, HTML semantic tags, meta tags, JSON-LD properties, llms.txt, robots.txt, sitemap, and technical coherence between frontend and backend.'
+    : 'TONO: Consulente. Fornisci commenti dettagliati (3-5 frasi per dimensione). Spiega perché ogni punto di forza o lacuna è rilevante. I passi operativi devono essere concreti e attuabili.\n\nCRITICO: NON menzionare Wikipedia, Wikidata, articoli di giornale, citazioni esterne o autorevolezza esterna. Concentrati ESCLUSIVAMENTE sulla completezza dei dati strutturati, tag HTML semantici, meta tag, proprietà JSON-LD, llms.txt, robots.txt, sitemap, e coerenza tecnica tra frontend e backend.';
   const sysPrompt = langInstruction + (LANG==='en'?
     `You are an AI Identity expert. Respond ONLY with valid JSON.
-    LOCKED SCORES (DO NOT CHANGE): Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Grafo:${scores.grafo}, Coerenza:${scores.coerenza}, Politica:${scores.politica}, Profilo:${scores.profilo}.
+    LOCKED SCORES (DO NOT CHANGE): Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Connessione:${scores.connessione}, Coerenza:${scores.coerenza}, Accessibilita:${scores.accessibilita}, Profilo:${scores.profilo}.
     Domain history: ${history.years.join(',')||'none'}.
-    Output format: {"nome":"...","tipo":"Person|Organization","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Digital Authority","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"politica","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile & Expertise","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n`
+    Output format: {"nome":"...","tipo":"Person|Organization","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"...","gap":"..."},{"id":"connessione","nome":"Professional Network","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"accessibilita","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile Completeness","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n`
     :`Sei esperto AI Identity. Rispondi SOLO con JSON.
-    PUNTEGGI BLOCCATI: Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Grafo:${scores.grafo}, Coerenza:${scores.coerenza}, Politica:${scores.politica}, Profilo:${scores.profilo}.
+    PUNTEGGI BLOCCATI (NON MODIFICARE): Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Connessione:${scores.connessione}, Coerenza:${scores.coerenza}, Accessibilita:${scores.accessibilita}, Profilo:${scores.profilo}.
     Storia dominio: ${history.years.join(',')||'nessuno'}.
-    Output: {"nome":"...","tipo":"Persona|Organizzazione","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Autorità Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n`)
+    Output: {"nome":"...","tipo":"Persona|Organizzazione","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"...","gap":"..."},{"id":"connessione","nome":"Rete Professionale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identità","sintesi":"...","gap":"..."},{"id":"accessibilita","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Completezza Profilo","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n`)
     + `\n${toneInstructionDetail}\n`;
   const userMsg = signals ? `Analizza: ${url}\nPiattaforma: ${signals.platform||'unknown'}\nDati estratti:\n${JSON.stringify({title:signals.title,description:signals.description,ogTitle:signals.ogTitle,ogDescription:signals.ogDescription,jsonLd:signals.jsonLd},null,2)}` : `Pagina non accessibile: ${url}`;
   const geminiBody = JSON.stringify({ system_instruction:{parts:[{text:sysPrompt}]}, contents:[{role:'user',parts:[{text:userMsg}]}], generationConfig:{maxOutputTokens:2500,temperature:0.3} });
@@ -537,23 +531,21 @@ function scoreToRating(score){
 }
 function renderResults(d, signals, aiFiles, scores){
   d.score = scores.overall;
-  const idMap = { leggibilita:'leggibilita', leggibilità:'leggibilita', grafo:'grafo', autorita:'grafo', autorità:'grafo', coerenza:'coerenza', politica:'politica', accessibilita:'politica', accessibilità:'politica', profilo:'profilo' };
-  const scoreMap = { leggibilita:scores.leggibilita, grafo:scores.grafo, coerenza:scores.coerenza, politica:scores.politica, profilo:scores.profilo };
+  const idMap = { leggibilita:'leggibilita', connessione:'connessione', coerenza:'coerenza', accessibilita:'accessibilita', profilo:'profilo' };
+  const scoreMap = { leggibilita:scores.leggibilita, connessione:scores.connessione, coerenza:scores.coerenza, accessibilita:scores.accessibilita, profilo:scores.profilo };
   if(!d.dimensioni || !Array.isArray(d.dimensioni)){
     d.dimensioni = [
       {id:'leggibilita', nome:(LANG==='en'?'AI Readability':'Leggibilità AI'), sintesi:'', gap:'', score:scores.leggibilita},
-      {id:'grafo', nome:(LANG==='en'?'Digital Authority':'Autorità Digitale'), sintesi:'', gap:'', score:scores.grafo},
+      {id:'connessione', nome:(LANG==='en'?'Professional Network':'Rete Professionale'), sintesi:'', gap:'', score:scores.connessione},
       {id:'coerenza', nome:(LANG==='en'?'Identity Consistency':'Coerenza Identità'), sintesi:'', gap:'', score:scores.coerenza},
-      {id:'politica', nome:(LANG==='en'?'AI Accessibility':'Accessibilità AI'), sintesi:'', gap:'', score:scores.politica},
-      {id:'profilo', nome:(LANG==='en'?'Profile & Expertise':'Profilo'), sintesi:'', gap:'', score:scores.profilo}
+      {id:'accessibilita', nome:(LANG==='en'?'AI Accessibility':'Accessibilità AI'), sintesi:'', gap:'', score:scores.accessibilita},
+      {id:'profilo', nome:(LANG==='en'?'Profile Completeness':'Completezza Profilo'), sintesi:'', gap:'', score:scores.profilo}
     ];
   } else {
     d.dimensioni.forEach(dim=>{
       const stdId = idMap[dim.id]||dim.id;
       if(scoreMap[stdId]!==undefined) dim.score = scoreMap[stdId];
       if(dim.score===undefined || dim.score===null) dim.score=0;
-      if(dim.id==='grafo'||dim.id==='autorita') dim.nome = (LANG==='en'?'Digital Authority':'Autorità Digitale');
-      if(dim.id==='politica'||dim.id==='accessibilita') dim.nome = (LANG==='en'?'AI Accessibility':'Accessibilità AI');
     });
   }
   document.getElementById('loadingSection').style.display='none';
@@ -567,8 +559,6 @@ function renderResults(d, signals, aiFiles, scores){
     const tags = [
       {l: signals?.jsonLd?.length>0 ? (jq?.isPlugin ? `⚠️ Plugin (${(jq.source||'').split(' ')[0]})` : '✅ Schema manuale') : 'JSON-LD assente', v: signals?.jsonLd?.length>0, warn: jq?.isPlugin},
       {l:'sameAs', v:(signals?.sameAs?.length||0)>0},
-      {l:'Wikidata', v:jq?.hasWikidata||false},
-      {l:'Wikipedia', v:jq?.hasWikipedia||false},
       {l:'llms.txt', v:!!aiFiles?.llmsTxt},
       {l:'robots.txt', v:!!aiFiles?.robotsTxt},
       {l:aiFiles?.sitemapUrl?'sitemap':'sitemap', v:!!aiFiles?.sitemapXml}
