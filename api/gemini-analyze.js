@@ -1,4 +1,4 @@
-const MODEL = "gemini-3.1-flash-lite-preview";
+const MODEL = "gemini-3.1-flash";
 
 module.exports = async (req, res) => {
   // CORS
