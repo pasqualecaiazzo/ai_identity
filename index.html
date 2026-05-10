@@ -329,7 +329,7 @@ function resetTool() {
 }
 
 // ----------------------------------------------------------------------
-// 3. CHIEDE CRONOLOGIA DOMINIO (tramite proxy, timeout aumentato)
+// 3. CRONOLOGIA DOMINIO (timeout aumentato)
 // ----------------------------------------------------------------------
 async function checkDomainHistory(url) {
   const domain = new URL(url).hostname;
@@ -347,7 +347,7 @@ async function checkDomainHistory(url) {
       if (data.contents) parsed = JSON.parse(data.contents);
       else parsed = data;
       if (parsed.archived_snapshots?.closest) { found.push(y); return true; }
-    } catch(e) { console.warn(`Wayback check failed for ${y} years:`, e.message); }
+    } catch(e) { console.warn(`Wayback failed for ${y}y:`, e.message); }
     return false;
   });
   await Promise.all(checks);
@@ -358,7 +358,7 @@ async function checkDomainHistory(url) {
 }
 
 // ----------------------------------------------------------------------
-// 4. FETCH PAGINA (con fallback su proxy)
+// 4. FETCH PAGINA (con fallback)
 // ----------------------------------------------------------------------
 async function fetchWithTimeout(url, ms) {
   const ctrl = new AbortController();
@@ -391,7 +391,7 @@ async function fetchPage(url) {
       }
     }
   } catch(e) { console.warn('Vercel API failed:', e.message); }
-  // fallback 1: allorigins
+  // fallback
   try {
     const r = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, 5000);
     if (r.ok) {
@@ -403,7 +403,6 @@ async function fetchPage(url) {
       }
     }
   } catch(e) { console.warn('allorigins failed:', e.message); }
-  // fallback 2: codetabs
   try {
     const r = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, 5000);
     if (r.ok) {
@@ -420,7 +419,7 @@ async function fetchPage(url) {
 }
 
 // ----------------------------------------------------------------------
-// 5. ESTRAZIONE SEGNALI DALLA PAGINA
+// 5. ESTRAZIONE SEGNALI (con rilevamento plugin corretto)
 // ----------------------------------------------------------------------
 function extractSignals(html, url) {
   const doc = (new DOMParser()).parseFromString(html, 'text/html');
@@ -442,7 +441,7 @@ function extractSignals(html, url) {
     jsonLd,
     jsonLdTypes: allObjects.map(o => o['@type']).filter(Boolean).flat(),
     hasPersonSchema: allObjects.some(o => ['Person', 'ProfilePage'].includes(o['@type'])),
-    hasOrgSchema: allObjects.some(o => ['Organization', 'LocalBusiness', 'NGO', 'Association'].includes(o['@type'])),
+    hasOrgSchema: allObjects.some(o => ['Organization', 'LocalBusiness', 'NGO', 'Association', 'EducationalOrganization'].includes(o['@type'])),
     sameAs: allObjects.flatMap(o => Array.isArray(o.sameAs) ? o.sameAs : (o.sameAs ? [o.sameAs] : [])),
     hasCustomDomain: (() => { try { return !/^(www\.)?(linkedin|facebook|instagram|twitter|x\.com|linktree|bio\.link|linktr\.ee)/i.test(new URL(url).hostname); } catch { return true; } })(),
     socials: {
@@ -450,15 +449,15 @@ function extractSignals(html, url) {
       github: links.find(h => /github\.com\//i.test(h)) || null,
     },
     h1s: [...doc.querySelectorAll('h1')].map(h => h.textContent.trim()).filter(Boolean).slice(0,3),
-    bodyExcerpt: (doc.body?.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 400),
+    bodyExcerpt: (doc.body?.textContent || '').replace(/\s+/g, ' ').trim().substring(0,400),
     platform: detectPlatform(html, jsonLd),
-    jsonLdQuality: analyzeJsonLdQuality(jsonLd, detectPlatform(html, jsonLd))
+    jsonLdQuality: analyzeJsonLdQuality(jsonLd, detectPlatform(html, jsonLd), html)
   };
 }
 
 function detectPlatform(html, jsonLd) {
   const raw = JSON.stringify(jsonLd);
-  const head = (html || '').substring(0, 8000);
+  const head = (html || '').substring(0,8000);
   if (/cdn\.shopify\.com|shopify\.com\/s\//i.test(raw) || /Shopify\./i.test(head)) return 'shopify';
   if (/prestashop/i.test(head) || /"prestashop"/i.test(raw)) return 'prestashop';
   if (/woocommerce|woo-commerce/i.test(raw) || /woocommerce/i.test(head)) return 'woocommerce';
@@ -468,28 +467,23 @@ function detectPlatform(html, jsonLd) {
   return 'unknown';
 }
 
-function analyzeJsonLdQuality(jsonLd, platform = '') {
+function analyzeJsonLdQuality(jsonLd, platform = '', html = '') {
   if (!jsonLd || jsonLd.length === 0) return { present: false, source: 'nessuno', score: 'assente', details: [] };
   const raw = JSON.stringify(jsonLd);
-  const hasGraph = jsonLd.some(j => j['@graph']);
-  const hasYoastId = raw.includes('#/schema/');
-  const hasRankMathId = raw.includes('rank-math') || raw.includes('rankmath') || raw.includes('#richSnippet');
-  const hasWordPress = raw.includes('wordpress') || raw.includes('wp-');
+  const fullHtml = (html || '').toLowerCase();
+  const isYoast = raw.includes('#/schema/') || raw.includes('yoast') || fullHtml.includes('wpseo');
+  const isRankMath = raw.includes('rank-math') || raw.includes('rankmath') || raw.includes('#richSnippet');
+  const isWpAuto = (raw.includes('wp-') || raw.includes('wordpress')) && (fullHtml.includes('/wp-content/plugins/') || fullHtml.includes('wp-json/wp/v2'));
+  const isPlugin = isYoast || isRankMath || isWpAuto;
   let source = 'manuale';
-  if (hasYoastId) source = 'Yoast SEO (automatico)';
-  else if (hasRankMathId) source = 'RankMath (automatico)';
-  else if (platform === 'woocommerce' || (hasGraph && hasWordPress)) source = 'plugin WordPress (automatico)';
-  else if (hasGraph) source = 'schema @graph (automatico)';
-  if (source === 'manuale') {
-    if (platform === 'shopify') source = 'Shopify (nativo)';
-    else if (platform === 'prestashop') source = 'PrestaShop (nativo)';
-    else if (platform === 'squarespace') source = 'Squarespace (nativo)';
-    else if (platform === 'wix') source = 'Wix (nativo)';
-  }
-  const isPlugin = source.includes('(automatico)');
+  let isPluginFlag = false;
+  if (isYoast) { source = 'Yoast SEO (plugin)'; isPluginFlag = true; }
+  else if (isRankMath) { source = 'RankMath (plugin)'; isPluginFlag = true; }
+  else if (isWpAuto) { source = 'WordPress automatico (plugin)'; isPluginFlag = true; }
+  else if (['shopify','prestashop','squarespace','wix'].includes(platform)) { source = `${platform} (nativo)`; isPluginFlag = true; }
   const allObjects = jsonLd.flatMap(j => j['@graph'] || [j]);
   const person = allObjects.find(o => o['@type'] === 'Person' || o['@type'] === 'ProfilePage');
-  const org = allObjects.find(o => ['Organization', 'LocalBusiness', 'NGO'].includes(o['@type']));
+  const org = allObjects.find(o => ['Organization','LocalBusiness','NGO','EducationalOrganization'].includes(o['@type']));
   const mainEntity = person || org;
   let richness = 0;
   const details = [];
@@ -501,16 +495,13 @@ function analyzeJsonLdQuality(jsonLd, platform = '') {
     const sameAs = Array.isArray(mainEntity.sameAs) ? mainEntity.sameAs : (mainEntity.sameAs ? [mainEntity.sameAs] : []);
     const hasWikidata = sameAs.some(s => /wikidata\.org/i.test(s));
     const hasWikipedia = sameAs.some(s => /wikipedia\.org/i.test(s));
-    const hasLinkedIn = sameAs.some(s => /linkedin\.com/i.test(s));
-    if (sameAs.length === 0) details.push('sameAs: ASSENTE — entità non collegata a Knowledge Graph esterni');
-    else details.push(`sameAs: ${sameAs.length} link (${[hasWikidata?'Wikidata':'', hasWikipedia?'Wikipedia':'', hasLinkedIn?'LinkedIn':''].filter(Boolean).join(', ') || 'solo social'})`);
-    if (!hasWikidata) details.push('Wikidata: MANCANTE — cruciale per AI e Knowledge Graph di Google');
-  } else {
-    details.push('Nessun schema Person o Organization trovato');
-  }
-  if (source !== 'manuale') details.push(`ATTENZIONE: JSON-LD generato da ${source} — il proprietario non controlla direttamente le informazioni semantiche`);
+    if (sameAs.length === 0) details.push('sameAs: ASSENTE');
+    else details.push(`sameAs: ${sameAs.length} link (${[hasWikidata?'Wikidata':'', hasWikipedia?'Wikipedia':''].filter(Boolean).join(', ') || 'solo social'})`);
+    if (!hasWikidata) details.push('Wikidata: MANCANTE');
+  } else details.push('Nessun schema Person/Organization');
+  if (isPluginFlag && !source.includes('manuale')) details.push(`ATTENZIONE: generato da ${source}`);
   return {
-    present: true, source, isPlugin,
+    present: true, source, isPlugin: isPluginFlag,
     types: allObjects.map(o => o['@type']).filter(Boolean).flat(),
     richness, details,
     sameAsCount: allObjects.flatMap(o => Array.isArray(o.sameAs) ? o.sameAs : (o.sameAs ? [o.sameAs] : [])).length,
@@ -525,10 +516,7 @@ function analyzeJsonLdQuality(jsonLd, platform = '') {
 async function fetchAiFiles(baseUrl) {
   const base = new URL(baseUrl).origin;
   const results = { llmsTxt: null, robotsTxt: null, sitemapXml: false, sitemapUrl: null, llmsTxtStatus: 'absent', robotsTxtStatus: 'absent', sitemapStatus: 'absent' };
-  const isHtmlOrTrash = (t) => {
-    const s = t.substring(0,400).toLowerCase().trimStart();
-    return /^<(!doctype|html|!--|saved from)/i.test(s) || /^<!--\s*saved from/i.test(s) || /<html[\s>]/i.test(s.substring(0,200));
-  };
+  const isHtmlOrTrash = (t) => /^<(!doctype|html|!--|saved from)/i.test(t.substring(0,400).toLowerCase()) || /<html[\s>]/i.test(t.substring(0,200));
   const isXmlSitemap = (t) => /<urlset|<sitemapindex/i.test(t.substring(0,600));
   async function tryFetch(pathOrUrl) {
     const fullUrl = pathOrUrl.startsWith('http') ? pathOrUrl : base + pathOrUrl;
@@ -538,36 +526,23 @@ async function fetchAiFiles(baseUrl) {
         const txt = await r.text();
         return { content: txt, status: 'found' };
       }
-      const status = r.status === 404 ? 'absent' : 'unreachable';
-      return { content: null, status };
-    } catch(e) {
-      return { content: null, status: 'unreachable' };
-    }
+      return { content: null, status: r.status === 404 ? 'absent' : 'unreachable' };
+    } catch { return { content: null, status: 'unreachable' }; }
   }
-  // robots.txt
   const rb = await tryFetch('/robots.txt');
   if (rb.status === 'found' && rb.content && !isHtmlOrTrash(rb.content)) {
     results.robotsTxt = rb.content.substring(0,1200);
     results.robotsTxtStatus = 'found';
-  } else {
-    results.robotsTxtStatus = rb.status;
-  }
-  // llms.txt
+  } else results.robotsTxtStatus = rb.status;
   const ll = await tryFetch('/llms.txt');
   if (ll.status === 'found' && ll.content && !isHtmlOrTrash(ll.content) && ll.content.trim().length > 5) {
     results.llmsTxt = ll.content.substring(0,800);
     results.llmsTxtStatus = 'found';
-  } else {
-    results.llmsTxtStatus = ll.status;
-  }
-  // sitemap
-  const sitemapPaths = ['/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml', '/sitemap-index.xml', '/page-sitemap.xml'];
+  } else results.llmsTxtStatus = ll.status;
+  let sitemapPaths = ['/sitemap.xml','/sitemap_index.xml','/wp-sitemap.xml','/sitemap-index.xml','/page-sitemap.xml'];
   if (results.robotsTxt) {
     const match = results.robotsTxt.match(/^Sitemap:\s*(.+)$/im);
-    if (match) {
-      const d = match[1].trim();
-      sitemapPaths.unshift(d.startsWith('http') ? d : '/' + d.replace(/^\//, ''));
-    }
+    if (match) sitemapPaths.unshift(match[1].trim());
   }
   let sitemapAllUnreachable = true;
   for (const path of sitemapPaths) {
@@ -587,138 +562,123 @@ async function fetchAiFiles(baseUrl) {
 }
 
 // ----------------------------------------------------------------------
-// 7. CALCOLO PUNTEGGI COMPLETO (5 dimensioni, sottocriteri)
+// 7. CALCOLO PUNTEGGI (bilanciato, nessun falso plugin penalty)
 // ----------------------------------------------------------------------
 function computeScores(signals, aiFiles, history, html) {
-  if (!signals) {
-    return { leggibilita: 20, grafo: 20, coerenza: 20, politica: 20, profilo: 20, overall: 20 };
-  }
-  let l = 0, g = 0, c = 0, p = 0, pr = 0;
-  const mainEntity = signals.jsonLd.flatMap(j => j['@graph'] || [j]).find(o => o['@type'] === 'Person' || o['@type'] === 'ProfilePage');
+  if (!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
+  const allObjects = signals.jsonLd.flatMap(j => j['@graph'] || [j]);
+  const mainEntity = allObjects.find(o => o['@type'] === 'Person' || o['@type'] === 'ProfilePage');
   const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
-  
-  // 1. LEGGIBILITÀ AI (max 100)
+  const hasGraph = JSON.stringify(signals.jsonLd).includes('"@graph"');
+  // 1. Leggibilità
+  let l = 0;
   if (signals.jsonLd.length > 0) {
-    l += 30; // presenza base
-    l += isManual ? 20 : 8; // manuale vs plugin
+    l += 30;
+    l += isManual ? 25 : 10;
+    if (hasGraph && isManual) l += 10;
   }
-  // meta tag essenziali
-  if (signals.title) l += 5;
-  if (signals.description && signals.description.length > 50) l += 5;
-  if (signals.canonical) l += 3;
-  if (signals.ogTitle && signals.ogDescription) l += 2 + 2;
-  // struttura HTML
-  if (signals.h1s && signals.h1s.length > 0) l += 8;
-  if (html && /<(main|article|header|footer|section)/i.test(html)) l += 7;
-  // file di servizio
+  if (signals.title) l += 8;
+  if (signals.description && signals.description.length > 50) l += 7;
+  if (signals.canonical) l += 5;
+  if (signals.ogTitle && signals.ogDescription) l += 5;
+  if (signals.h1s && signals.h1s.length > 0) l += 5;
+  if (html && /<(main|article|header|footer|section)/i.test(html)) l += 5;
   if (aiFiles?.llmsTxt) l += 10;
   if (aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l += 10;
   l = Math.min(100, l);
-  
-  // 2. AUTORITÀ DIGITALE (max 100)
+  // 2. Autorità
+  let g = 0;
   if (mainEntity) {
-    // sameAs verso Knowledge Graph
     const sameAs = Array.isArray(mainEntity.sameAs) ? mainEntity.sameAs : (mainEntity.sameAs ? [mainEntity.sameAs] : []);
-    let kgPoints = 0;
+    let kg = 0;
     for (const link of sameAs) {
-      if (/wikidata\.org/i.test(link)) kgPoints += 15;
-      else if (/wikipedia\.org/i.test(link)) kgPoints += 10;
-      else if (/linkedin\.com/i.test(link)) kgPoints += 5;
-      else if (/github\.com/i.test(link)) kgPoints += 2;
-      else kgPoints += 1;
+      if (/wikidata\.org/i.test(link)) kg += 22;
+      else if (/wikipedia\.org/i.test(link)) kg += 12;
+      else if (/linkedin\.com/i.test(link)) kg += 8;
+      else if (/github\.com/i.test(link)) kg += 6;
+      else if (/orcid\.org/i.test(link)) kg += 9;
+      else kg += 1;
     }
-    g += Math.min(30, kgPoints);
-    // knowsAbout
+    g += Math.min(35, kg);
     const knows = mainEntity.knowsAbout;
     if (knows) {
       const count = Array.isArray(knows) ? knows.length : 1;
-      g += Math.min(20, count * 5);
+      g += Math.min(20, count * 6);
     }
-    // worksFor / affiliation
     if (mainEntity.worksFor || mainEntity.affiliation) g += 15;
     if (mainEntity.memberOf) g += 5;
-    // subjectOf (citazioni)
-    if (mainEntity.subjectOf) g += 15;
-    // identifier univoci
+    if (mainEntity.subjectOf) g += 12;
     if (mainEntity.identifier) g += 10;
-    if (mainEntity.vatID) g += 5;
+    if (mainEntity.vatID) g += 3;
   }
   g = Math.min(100, g);
-  
-  // 3. COERENZA IDENTITÀ (max 100)
-  if (signals.title && signals.ogTitle) {
-    if (signals.title === signals.ogTitle || signals.title.includes(signals.ogTitle) || signals.ogTitle.includes(signals.title)) c += 10;
-  }
+  // 3. Coerenza
+  let c = 0;
   if (signals.title && mainEntity?.name) {
-    if (signals.title === mainEntity.name || signals.title.includes(mainEntity.name) || mainEntity.name.includes(signals.title)) c += 10;
-  }
-  if (signals.description && signals.ogDescription) {
-    if (signals.description === signals.ogDescription || signals.description.includes(signals.ogDescription)) c += 10;
-  }
+    if (signals.title === mainEntity.name || signals.title.includes(mainEntity.name) || mainEntity.name.includes(signals.title)) c += 20;
+    else c += 10;
+  } else if (signals.title) c += 5;
   if (signals.description && mainEntity?.description) {
-    if (signals.description === mainEntity.description || signals.description.includes(mainEntity.description)) c += 10;
+    if (signals.description === mainEntity.description || signals.description.includes(mainEntity.description)) c += 15;
+    else c += 5;
   }
   if (signals.ogImage && mainEntity?.image && new URL(signals.ogImage).origin === new URL(mainEntity.image).origin) c += 10;
   if (signals.canonical && signals.url && (signals.canonical === signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) c += 10;
-  c += history.bonus; // max 20
+  const hasPersonId = allObjects.some(o => o['@type'] === 'Person' && o['@id']);
+  const hasOrgId = allObjects.some(o => (o['@type'] === 'Organization' || o['@type'] === 'EducationalOrganization') && o['@id']);
+  if (hasPersonId && hasOrgId) c += 15;
+  else if (hasPersonId || hasOrgId) c += 8;
+  if (mainEntity && (mainEntity.sameAs?.length || 0) >= 2) c += 10;
+  c += history.bonus;
   c = Math.min(100, c);
-  
-  // 4. ACCESSIBILITÀ AI (max 100)
-  if (aiFiles?.llmsTxt) p += 40;
-  if (aiFiles?.robotsTxt && /gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p += 30;
+  // 4. Accessibilità AI
+  let p = 0;
+  if (aiFiles?.llmsTxt) p += 50;
+  if (aiFiles?.robotsTxt && /gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p += 35;
   else if (aiFiles?.robotsTxt) p += 20;
   if (aiFiles?.sitemapXml) p += 15;
-  // .well-known/ai-plugin.json (opzionale, lo controlleremo da segnale esterno? non abbiamo fetch, ma possiamo aggiungere un +5 se esiste? omesso per ora)
   p = Math.min(100, p);
-  
-  // 5. PROFILO E COMPETENZE (max 100) - versione avanzata
+  // 5. Profilo
+  let pr = 0;
   if (mainEntity) {
-    // identità base (max 20)
-    if (mainEntity.name) pr += 8;
-    if (mainEntity.description && mainEntity.description.length > 50) pr += 7;
-    if (mainEntity.image) pr += 5;
-    // ruolo (max 20)
-    if (mainEntity.jobTitle) pr += 8;
-    if (mainEntity.worksFor || mainEntity.affiliation) pr += 7;
-    if (mainEntity.hasOccupation) pr += 5;
-    // competenze (max 15)
-    const knowsAbout = mainEntity.knowsAbout;
-    if (knowsAbout) {
-      const count = Array.isArray(knowsAbout) ? knowsAbout.length : 1;
-      pr += Math.min(15, count * 5);
+    if (mainEntity.name) pr += 6;
+    if (mainEntity.description && mainEntity.description.length > 50) pr += 5;
+    if (mainEntity.image) pr += 4;
+    if (mainEntity.jobTitle) pr += 10;
+    if (mainEntity.worksFor || mainEntity.affiliation) pr += 12;
+    const knows = mainEntity.knowsAbout;
+    if (knows) {
+      const count = Array.isArray(knows) ? knows.length : 1;
+      pr += Math.min(28, count * 7);
     }
-    // credenziali e award (max 15)
-    if (mainEntity.hasCredential) pr += 5;
+    if (mainEntity.hasCredential) pr += 6;
     const awards = mainEntity.award;
     if (awards) {
       const awardCount = Array.isArray(awards) ? awards.length : 1;
       pr += Math.min(10, awardCount * 4);
     }
-    // sameAs verso piattaforme (max 10, già conteggiato in autorità, ma qui diamo un piccolo bonus)
     const sameAs = Array.isArray(mainEntity.sameAs) ? mainEntity.sameAs : (mainEntity.sameAs ? [mainEntity.sameAs] : []);
-    let profileLinks = 0;
+    let profPoints = 0;
     for (const link of sameAs) {
-      if (/linkedin\.com/i.test(link)) profileLinks += 4;
-      else if (/github\.com/i.test(link)) profileLinks += 3;
-      else if (/orcid\.org/i.test(link)) profileLinks += 5;
-      else if (/researchgate\.net/i.test(link)) profileLinks += 4;
-      else profileLinks += 1;
+      if (/linkedin\.com/i.test(link)) profPoints += 8;
+      else if (/github\.com/i.test(link)) profPoints += 6;
+      else if (/orcid\.org/i.test(link)) profPoints += 9;
+      else if (/researchgate\.net/i.test(link)) profPoints += 6;
+      else if (/twitter\.com|x\.com/i.test(link)) profPoints += 2;
+      else profPoints += 1;
     }
-    pr += Math.min(10, profileLinks);
-    // identificatori univoci (max 10)
+    pr += Math.min(18, profPoints);
     if (mainEntity.identifier) {
       const ids = Array.isArray(mainEntity.identifier) ? mainEntity.identifier : [mainEntity.identifier];
-      if (ids.some(id => typeof id === 'string' && (id.includes('orcid') || id.includes('wikidata') || /Q\d+/.test(id)))) pr += 7;
+      if (ids.some(id => typeof id === 'string' && (id.includes('orcid') || id.includes('wikidata') || /Q\d+/.test(id)))) pr += 8;
       else pr += 3;
     }
     if (mainEntity.vatID) pr += 3;
-    // formazione e associazioni (max 5)
-    if (mainEntity.alumniOf) pr += 3;
-    if (mainEntity.memberOf) pr += 2;
+    if (mainEntity.alumniOf) pr += 4;
+    if (mainEntity.memberOf) pr += 3;
   }
   pr = Math.min(100, Math.round(pr));
-  
-  const scores = { leggibilita: l, grafo: g, coerenza: c, politica: p, profilo: pr };
+  const scores = { leggibilita:l, grafo:g, coerenza:c, politica:p, profilo:pr };
   scores.overall = Math.round(l*0.30 + g*0.25 + c*0.20 + p*0.15 + pr*0.10);
   return scores;
 }
@@ -752,90 +712,47 @@ async function runAnalysis() {
   setStep(2);
   const signals = html ? extractSignals(html, url) : null;
   setStep(3);
-  let aiFiles = { llmsTxt: null, robotsTxt: null, sitemapXml: false, llmsTxtStatus: 'absent', robotsTxtStatus: 'absent', sitemapStatus: 'absent' };
+  let aiFiles = { llmsTxt: null, robotsTxt: null, sitemapXml: false, llmsTxtStatus:'absent', robotsTxtStatus:'absent', sitemapStatus:'absent' };
   try { aiFiles = await fetchAiFiles(url); } catch(e) { console.warn('fetchAiFiles error', e); }
   setStep(4);
   const scores = computeScores(signals, aiFiles, history, html);
-  console.log('Computed scores:', JSON.stringify(scores));
+  console.log('Computed scores:', scores);
   
-  const langInstruction = (LANG === 'en') ? 'CRITICAL INSTRUCTION: You must respond ENTIRELY in ENGLISH. Every single field in your JSON response must be written in English. Do not use Italian anywhere.\n\n' : '';
+  const langInstruction = (LANG === 'en') ? 'CRITICAL: Respond ENTIRELY in ENGLISH.\n\n' : '';
   const schemaConstraint = (LANG === 'en') 
-    ? `CRITICAL RULE — VALID SCHEMA.ORG PROPERTIES ONLY:
-When suggesting structured data improvements in any "gap" or "passi" field, you must ONLY reference Schema.org properties that exist in the official vocabulary at schema.org. Never invent property names.
-Valid Person properties: name, givenName, familyName, jobTitle, description, image, url, sameAs, @id, nationality, knowsAbout, knowsLanguage, hasOccupation, hasCredential, affiliation, memberOf, worksFor, alumniOf, address, contactPoint, homeLocation, workLocation, email, telephone, vatID, mainEntityOfPage, subjectOf, publishingPrinciples, award, identifier, additionalType
-Valid Organization properties: name, legalName, description, url, image, logo, sameAs, @id, vatID, taxID, leiCode, foundingDate, foundingLocation, address, contactPoint, areaServed, member, memberOf, employee, founder, alumni, award, publishingPrinciples, nonprofitStatus, mainEntityOfPage, subjectOf, knowsAbout, brand, funder, numberOfEmployees
-NON-EXISTENT properties that must NEVER be suggested: dataUsagePolicy, consumerRights, aiPolicy, aiReadabilityPolicy, dataGovernance, privacyPolicy (on Person), semanticLayer, or any other invented term not listed above. If you want to suggest AI data policy improvements, the correct property is publishingPrinciples pointing to a llms.txt file.\n\n`
-    : `REGOLA CRITICA — SOLO PROPRIETÀ SCHEMA.ORG VALIDE:
-Quando suggerisci miglioramenti ai dati strutturati nei campi "gap" o "passi", usa ESCLUSIVAMENTE proprietà Schema.org che esistono nel vocabolario ufficiale su schema.org. Non inventare nomi di proprietà.
-Proprietà valide Person: name, givenName, familyName, jobTitle, description, image, url, sameAs, @id, nationality, knowsAbout, knowsLanguage, hasOccupation, hasCredential, affiliation, memberOf, worksFor, alumniOf, address, contactPoint, homeLocation, workLocation, email, telephone, vatID, mainEntityOfPage, subjectOf, publishingPrinciples, award, identifier, additionalType
-Proprietà valide Organization: name, legalName, description, url, image, logo, sameAs, @id, vatID, taxID, leiCode, foundingDate, foundingLocation, address, contactPoint, areaServed, member, memberOf, employee, founder, alumni, award, publishingPrinciples, nonprofitStatus, mainEntityOfPage, subjectOf, knowsAbout, brand, funder, numberOfEmployees
-Proprietà INESISTENTI che non devono MAI essere suggerite: dataUsagePolicy, consumerRights, aiPolicy, aiReadabilityPolicy, dataGovernance, semanticLayer, o qualsiasi termine non presente nelle liste sopra. Per suggerire miglioramenti sulla politica AI, la proprietà corretta è publishingPrinciples che punta a un file llms.txt.\n\n`;
-
+    ? `CRITICAL RULE — VALID SCHEMA.ORG PROPERTIES ONLY.\n`
+    : `REGOLA — SOLO PROPRIETÀ SCHEMA.ORG VALIDE.\n`;
+  
   const toneDescriptions = {
-    1: (LANG === 'en') ? 'TONE 1 — EXECUTIVE: Zero technical jargon. Every concept must have a clear business impact. Use metaphors and analogies. Next steps must be actions a CEO can understand and delegate in 10 seconds.' : 'TONO 1 — IMPRENDITORE: Zero gergo tecnico. Ogni concetto deve avere un impatto di business chiaro. Usa metafore e analogie. I prossimi passi devono essere azioni che un CEO può capire e delegare in 10 secondi.',
-    2: (LANG === 'en') ? 'TONE 2 — MANAGER: Minimal technical jargon, always explained. Focus on measurable results and concrete opportunities.' : 'TONO 2 — MANAGER: Poco gergo tecnico, sempre spiegato. Focus su risultati misurabili e opportunità concrete.',
-    3: (LANG === 'en') ? `TONE 3 — CONSULTANT: Balanced. Never use unexplained technical terms. Always explain what a term means for the identity or business. Example: instead of "JSON-LD" say "the structured data that describes who you are". Instead of "sameAs" say "links to your profiles on other platforms". Every gap must be an opportunity, every step an actionable manager-friendly task.` : `TONO 3 — CONSULENTE: Bilanciato. Mai usare termini tecnici senza spiegarli. Ogni concetto deve essere tradotto in opportunità o azione manageriale. Esempio: invece di "JSON-LD" dire "i dati strutturati che descrivono chi sei". Invece di "sameAs" dire "i link ai tuoi profili su altre piattaforme". I gap devono essere descritti come opportunità di miglioramento, non come difetti.`,
-    4: (LANG === 'en') ? 'TONE 4 — DEVELOPER: Correct technical language. You can use terms like JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap without explaining them. Next steps must be specific technical actions.' : 'TONO 4 — SVILUPPATORE: Linguaggio tecnico corretto. Puoi usare termini come JSON-LD, schema.org, sameAs, canonical, robots.txt, sitemap senza spiegarli. I prossimi passi devono essere azioni tecniche specifiche.',
-    5: (LANG === 'en') ? 'TONE 5 — AI EXPERT: Maximum technical detail. Deep analysis of every signal. Use all specialized terminology: Knowledge Graph, entity disambiguation, training data, crawler directives.' : 'TONO 5 — ESPERTO AI: Massimo dettaglio tecnico. Analisi approfondita di ogni segnale. Usa tutta la terminologia specializzata: Knowledge Graph, entity disambiguation, training data, crawler directives.',
+    1: (LANG === 'en') ? 'TONE 1 — EXECUTIVE: No technical jargon. Business impact only.' : 'TONO 1 — IMPRENDITORE: Zero gergo tecnico, solo impatto business.',
+    2: (LANG === 'en') ? 'TONE 2 — MANAGER: Minimal jargon, focus on results.' : 'TONO 2 — MANAGER: Poco gergo, focus su risultati.',
+    3: (LANG === 'en') ? `TONE 3 — CONSULTANT: Balanced, no unexplained technical terms. Explain every concept in plain language.` : `TONO 3 — CONSULENTE: Bilanciato, mai termini tecnici senza spiegazione.`,
+    4: (LANG === 'en') ? 'TONE 4 — DEVELOPER: Technical language allowed. Use JSON-LD, schema.org, sameAs, canonical.' : 'TONO 4 — SVILUPPATORE: Linguaggio tecnico.',
+    5: (LANG === 'en') ? 'TONE 5 — AI EXPERT: Maximum technical depth.' : 'TONO 5 — ESPERTO AI: Massimo dettaglio tecnico.'
   };
   
   const sysPrompt = langInstruction + schemaConstraint + (
     (LANG === 'en' ?
-      `You are an AI Identity expert. Respond ONLY with valid JSON. 
-      LOCKED SCORES (DO NOT CHANGE): Overall: ${scores.overall}, Leggibilita: ${scores.leggibilita}, Grafo: ${scores.grafo}, Coerenza: ${scores.coerenza}, Politica: ${scores.politica}, Profilo: ${scores.profilo}.
-      Domain History: Found snapshots for years: ${history.years.join(', ') || 'none'}.
-      
-      DIMENSIONS TO EVALUATE:
-      1. AI READABILITY — How clear is your site for an AI?
-      2. DIGITAL AUTHORITY — Do AIs recognize you as a reliable source?
-      3. IDENTITY CONSISTENCY — Does the site speak with one voice?
-      4. AI ACCESSIBILITY — Have you prepared the site for the AI era?
-      5. PROFILE & EXPERTISE — How recognizable and specific are you?
-
-      Respond ONLY with valid JSON. Do NOT include "score" fields. Use the following structure:
-      {"nome":"...","tipo":"Person|Organization|Brand|E-commerce|Product","percezione_ai":"3-5 sentences","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Digital Authority","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"politica","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile & Expertise","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[],"sintesi":"..."}\n` :
-      `Sei un esperto di AI Identity. Rispondi SOLO con JSON valido. 
-      PUNTEGGI BLOCCATI (NON MODIFICARE): Overall: ${scores.overall}, Leggibilita: ${scores.leggibilita}, Grafo: ${scores.grafo}, Coerenza: ${scores.coerenza}, Politica: ${scores.politica}, Profilo: ${scores.profilo}.
-      Storia Dominio: Snapshot trovati per anni: ${history.years.join(', ') || 'nessuno'}.
-
-      DIMENSIONI DA VALUTARE:
-      1. LEGGIBILITÀ AI — Quanto è chiaro il tuo sito per una AI?
-      2. AUTOREVOLEZZA DIGITALE — Le AI ti riconoscono come fonte affidabile?
-      3. COERENZA DELL'IDENTITÀ — Il sito parla con una voce sola?
-      4. ACCESSIBILITÀ AI — Hai preparato il sito per l'era dell'AI?
-      5. PROFILO E COMPETENZE — Quanto sei riconoscibile e specifico?
-
-      Rispondi SOLO con JSON valido. NON includere campi "score". Usa questa struttura:
-      {"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi","dimensioni":[{"id":"leggibilita","nome":"Leggibilita AI","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identita","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilita AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[],"sintesi":"..."}\n`)
-  ) + '\nREQUIRED DETAIL LEVEL: ' + TONE + '/5 — ' + t('toneLevels')[TONE-1] + '\n' + toneDescriptions[TONE] + '\n';
+      `You are an AI Identity expert. Respond ONLY with valid JSON.
+      LOCKED SCORES (DO NOT CHANGE): Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Grafo:${scores.grafo}, Coerenza:${scores.coerenza}, Politica:${scores.politica}, Profilo:${scores.profilo}.
+      Domain History: ${history.years.join(', ') || 'none'}.
+      Dimensions: 1.AI Readability 2.Digital Authority 3.Identity Consistency 4.AI Accessibility 5.Profile&Expertise.
+      Output format: {"nome":"...","tipo":"Person|Organization","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"...","sintesi":"...","gap":"..."},...],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n` :
+      `Sei esperto AI Identity. Rispondi SOLO con JSON.
+      PUNTEGGI BLOCCATI: Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Grafo:${scores.grafo}, Coerenza:${scores.coerenza}, Politica:${scores.politica}, Profilo:${scores.profilo}.
+      Storia: ${history.years.join(', ') || 'nessuno'}.
+      Dimensioni: 1.Leggibilità AI 2.Autorità Digitale 3.Coerenza Identità 4.Accessibilità AI 5.Profilo.
+      Output: {"nome":"...","tipo":"Persona|Organizzazione","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"...","sintesi":"...","gap":"..."},...],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n`)
+  ) + `\nREQUIRED DETAIL LEVEL: ${TONE}/5 — ${t('toneLevels')[TONE-1]}\n${toneDescriptions[TONE]}\n`;
   
-  const scoresInfo = `
-PUNTEGGI CALCOLATI DAL CODICE (non ricalcolare, non inventarne altri):
-- Leggibilità AI: ${scores.leggibilita}/100
-- Grafo di Conoscenza: ${scores.grafo}/100
-- Coerenza Entità: ${scores.coerenza}/100
-- Politica AI: ${scores.politica}/100
-- Profondità Professionale: ${scores.profilo}/100
-- Score globale: ${scores.overall}/100`;
-  
-  const fetchTrapped = window._fetchTrapped === true;
-  const llmsStatus = aiFiles.llmsTxt ? 'PRESENTE' : (aiFiles.llmsTxtStatus === 'unreachable' ? 'NON RAGGIUNGIBILE' : 'ASSENTE (404 verificato)');
-  const robotsStatus = aiFiles.robotsTxt ? 'PRESENTE' : (aiFiles.robotsTxtStatus === 'unreachable' ? 'NON RAGGIUNGIBILE' : 'ASSENTE (404 verificato)');
-  const smStatus = aiFiles.sitemapXml ? `PRESENTE (${aiFiles.sitemapUrl})` : (aiFiles.sitemapStatus === 'unreachable' ? 'NON RAGGIUNGIBILE' : 'ASSENTE (404 verificato su tutti i path standard)');
-  
-  const aiFilesInfo = `
-FETCH CONTEXT:
-- fetch_context: ${fetchTrapped ? 'pagina_protetta_da_redirect' : 'pagina_recuperata_correttamente'}
-- Pagina principale recuperata: ${signals ? 'SÌ' : 'NO — analisi parziale'}
-
-FILE AI:
-- llms.txt: ${llmsStatus}${aiFiles.llmsTxt ? '\n'+aiFiles.llmsTxt : ''}
-- robots.txt: ${robotsStatus}${aiFiles.robotsTxt ? '\n'+aiFiles.robotsTxt : ''}
-- sitemap: ${smStatus}`;
-  
+  const scoresInfo = `PUNTEGGI: Leggibilità=${scores.leggibilita}, Autorità=${scores.grafo}, Coerenza=${scores.coerenza}, Accessibilità=${scores.politica}, Profilo=${scores.profilo}, Overall=${scores.overall}`;
+  const llmsStatus = aiFiles.llmsTxt ? 'PRESENTE' : (aiFiles.llmsTxtStatus==='unreachable'?'NON RAGGIUNGIBILE':'ASSENTE');
+  const robotsStatus = aiFiles.robotsTxt ? 'PRESENTE' : (aiFiles.robotsTxtStatus==='unreachable'?'NON RAGGIUNGIBILE':'ASSENTE');
+  const smStatus = aiFiles.sitemapXml ? `PRESENTE (${aiFiles.sitemapUrl})` : (aiFiles.sitemapStatus==='unreachable'?'NON RAGGIUNGIBILE':'ASSENTE');
+  const aiFilesInfo = `\nllms.txt: ${llmsStatus}\nrobots.txt: ${robotsStatus}\nsitemap: ${smStatus}`;
   const userMsg = signals
-    ? `Analizza la AI readability di questa entità.\n\nURL: ${url}\nPIATTAFORMA: ${signals.platform || 'unknown'}\n\n${scoresInfo}\n\nDATI STRUTTURATI ESTRATTI:\n${JSON.stringify({platform:signals.platform,title:signals.title,description:signals.description,ogTitle:signals.ogTitle,ogDescription:signals.ogDescription,canonical:signals.canonical,jsonLd:signals.jsonLd,jsonLdQuality:signals.jsonLdQuality,h1s:signals.h1s,hasCustomDomain:signals.hasCustomDomain,bodyExcerpt:signals.bodyExcerpt},null,2)}\n\n${aiFilesInfo}`
-    : `Analizza la AI readability di questa entità: ${url}\n\n${scoresInfo}\n\nNOTA: impossibile accedere al contenuto della pagina. Assegna score 40-50 per le dimensioni non verificabili.\n\n${aiFilesInfo}`;
+    ? `Analizza questa entità: ${url}\nPiattaforma: ${signals.platform || 'unknown'}\n${scoresInfo}\nDati estratti:\n${JSON.stringify({title:signals.title,description:signals.description,jsonLd:signals.jsonLd,jsonLdQuality:signals.jsonLdQuality},null,2)}\n${aiFilesInfo}`
+    : `Analizza entità (pagina non accessibile): ${url}\n${scoresInfo}\n${aiFilesInfo}`;
   
   const geminiBody = JSON.stringify({
     system_instruction: { parts: [{ text: sysPrompt }] },
@@ -844,195 +761,137 @@ FILE AI:
   });
   
   try {
-    console.log('Calling gemini-analyze, lang:', LANG, 'tone:', TONE);
-    const res = await fetch('/api/gemini-analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: geminiBody });
+    const res = await fetch('/api/gemini-analyze', { method:'POST', headers:{'Content-Type':'application/json'}, body:geminiBody });
     const rawText = await res.text();
-    console.log('Gemini status:', res.status, 'raw:', rawText.substring(0,400));
-    if (!res.ok) {
-      let msg = `${t('errApi')} ${res.status}`;
-      try { const errMsg = JSON.parse(rawText)?.error?.message; if (errMsg) msg = errMsg.split('\n')[0]; } catch(e) {}
-      throw new Error(msg);
-    }
+    if (!res.ok) throw new Error(`${t('errApi')} ${res.status}`);
     const data = JSON.parse(rawText);
     const parts = data?.candidates?.[0]?.content?.parts || [];
-    const txt = parts.filter(p => !p.thought).map(p => p.text || '').join('');
-    const clean = txt.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const start = clean.indexOf('{');
-    const end = clean.lastIndexOf('}');
-    if (start === -1 || end === -1) throw new Error(t('errNoJson'));
-    function repairJson(s) {
-      return s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
-              .replace(/([^\\])\n/g, '$1 ').replace(/([^\\])\r/g, '$1 ')
-              .replace(/([^\\])\t/g, '$1 ');
-    }
-    let parsed;
-    try {
-      parsed = JSON.parse(clean.substring(start, end+1));
-    } catch(e) {
-      console.warn('JSON repair attempt:', e.message);
-      parsed = JSON.parse(repairJson(clean.substring(start, end+1)));
-    }
+    const txt = parts.filter(p => !p.thought).map(p => p.text).join('');
+    const clean = txt.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const start = clean.indexOf('{'), end = clean.lastIndexOf('}');
+    if (start===-1 || end===-1) throw new Error(t('errNoJson'));
+    const parsed = JSON.parse(clean.substring(start,end+1));
     renderResults(parsed, signals, aiFiles, scores);
   } catch(err) {
     document.getElementById('loadingSection').style.display = 'none';
     document.getElementById('inputSection').style.opacity = '1';
     document.getElementById('btnAnalyze').disabled = false;
-    showErr('Errore: ' + err.message);
+    showErr('Errore: '+err.message);
   }
 }
 
 // ----------------------------------------------------------------------
-// 9. FUNZIONI DI RENDER (con giudizi testuali e fallback)
+// 9. RENDER RISULTATI (con giudizi testuali e fallback)
 // ----------------------------------------------------------------------
-function sc(s) { return s >= 65 ? '#2DB885' : s >= 40 ? '#D4870E' : '#D84F35'; }
+function sc(s) { return s>=65?'#2DB885':s>=40?'#D4870E':'#D84F35'; }
 function scoreToRating(score) {
-  if (score >= 80) return { label: (LANG==='en' ? 'Excellent' : 'Eccellente'), color: '#2DB885' };
-  if (score >= 60) return { label: (LANG==='en' ? 'Good' : 'Buono'), color: '#A9C94C' };
-  if (score >= 40) return { label: (LANG==='en' ? 'Sufficient' : 'Sufficiente'), color: '#D4870E' };
-  return { label: (LANG==='en' ? 'Poor' : 'Scarso'), color: '#D84F35' };
+  if (score>=80) return { label:(LANG==='en'?'Excellent':'Eccellente'), color:'#2DB885' };
+  if (score>=60) return { label:(LANG==='en'?'Good':'Buono'), color:'#A9C94C' };
+  if (score>=40) return { label:(LANG==='en'?'Sufficient':'Sufficiente'), color:'#D4870E' };
+  return { label:(LANG==='en'?'Poor':'Scarso'), color:'#D84F35' };
 }
 
 function renderResults(d, signals, aiFiles, scores) {
   d.score = scores.overall;
-  const scoreMap = { leggibilita: scores.leggibilita, grafo: scores.grafo, coerenza: scores.coerenza, politica: scores.politica, profilo: scores.profilo };
-  if (d.dimensioni && Array.isArray(d.dimensioni)) {
-    d.dimensioni.forEach(dim => {
-      if (scoreMap[dim.id] !== undefined) dim.score = scoreMap[dim.id];
-      if (dim.id === 'coerenza') dim.nome = (LANG === 'en' ? "Identity Consistency" : "Coerenza dell'Identità");
-      if (dim.id === 'politica') dim.nome = (LANG === 'en' ? "AI Accessibility" : "Accessibilità AI");
-    });
-  } else {
+  const scoreMap = { leggibilita:scores.leggibilita, grafo:scores.grafo, coerenza:scores.coerenza, politica:scores.politica, profilo:scores.profilo };
+  if (!d.dimensioni || !Array.isArray(d.dimensioni)) {
     d.dimensioni = [
-      { id: 'leggibilita', nome: (LANG === 'en' ? 'AI Readability' : 'Leggibilità AI'), sintesi: 'Dati insufficienti', gap: '', score: scores.leggibilita },
-      { id: 'grafo', nome: (LANG === 'en' ? 'Digital Authority' : 'Autorevolezza Digitale'), sintesi: 'Dati insufficienti', gap: '', score: scores.grafo },
-      { id: 'coerenza', nome: (LANG === 'en' ? 'Identity Consistency' : "Coerenza dell'Identità"), sintesi: 'Dati insufficienti', gap: '', score: scores.coerenza },
-      { id: 'politica', nome: (LANG === 'en' ? 'AI Accessibility' : 'Accessibilità AI'), sintesi: 'Dati insufficienti', gap: '', score: scores.politica },
-      { id: 'profilo', nome: (LANG === 'en' ? 'Profile & Expertise' : 'Profilo e Competenze'), sintesi: 'Dati insufficienti', gap: '', score: scores.profilo }
+      {id:'leggibilita', nome:(LANG==='en'?'AI Readability':'Leggibilità AI'), sintesi:'', gap:'', score:scores.leggibilita},
+      {id:'grafo', nome:(LANG==='en'?'Digital Authority':'Autorità Digitale'), sintesi:'', gap:'', score:scores.grafo},
+      {id:'coerenza', nome:(LANG==='en'?'Identity Consistency':'Coerenza Identità'), sintesi:'', gap:'', score:scores.coerenza},
+      {id:'politica', nome:(LANG==='en'?'AI Accessibility':'Accessibilità AI'), sintesi:'', gap:'', score:scores.politica},
+      {id:'profilo', nome:(LANG==='en'?'Profile & Expertise':'Profilo e Competenze'), sintesi:'', gap:'', score:scores.profilo}
     ];
+  } else {
+    d.dimensioni.forEach(dim => { if (scoreMap[dim.id]!==undefined) dim.score = scoreMap[dim.id]; });
   }
-  
   document.getElementById('loadingSection').style.display = 'none';
   document.getElementById('inputSection').style.display = 'none';
-  const R = 40, circ = (2 * Math.PI * R).toFixed(2), off = (circ - (d.score/100)*circ).toFixed(2), color = sc(d.score);
+  const R=40, circ=(2*Math.PI*R).toFixed(2), off=(circ-(d.score/100)*circ).toFixed(2), color=sc(d.score);
   const ratingTotal = scoreToRating(d.score);
-  
-  document.getElementById('scoreHeroWrap').innerHTML = `<div class="score-hero">
-    <div class="ring-wrap">
-      <svg width="100" height="100" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r="${R}" fill="none" stroke="#1C1C30" stroke-width="6"/>
-        <circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="6"
-          stroke-dasharray="${circ}" stroke-dashoffset="${circ}" stroke-linecap="round" id="scoreRing"
-          style="transition:stroke-dashoffset 1.5s cubic-bezier(.22,1,.36,1)"/>
-      </svg>
-      <div class="ring-center">
-        <span class="ring-num" id="scoreNum" style="color:${color}">0</span>
-        <span class="ring-sub">/100</span>
-        <div style="font-size:.45rem; color:${ratingTotal.color}; margin-top:4px;">${ratingTotal.label}</div>
+  document.getElementById('scoreHeroWrap').innerHTML = `
+    <div class="score-hero">
+      <div class="ring-wrap">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="${R}" fill="none" stroke="#1C1C30" stroke-width="6"/>
+          <circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="6" stroke-dasharray="${circ}" stroke-dashoffset="${circ}" stroke-linecap="round" id="scoreRing"/>
+        </svg>
+        <div class="ring-center">
+          <span class="ring-num" id="scoreNum" style="color:${color}">0</span>
+          <span class="ring-sub">/100</span>
+          <div style="font-size:.45rem;color:${ratingTotal.color};margin-top:4px;">${ratingTotal.label}</div>
+        </div>
       </div>
-    </div>
-    <div class="hero-info">
-      <span class="tipo">${d.tipo || (LANG==='en'?'Entity':'Entità')}</span>
-      <h2>${d.nome || ''}</h2>
-      <p class="sintesi">${d.sintesi || ''}</p>
-    </div>
-  </div>`;
-  
+      <div class="hero-info">
+        <span class="tipo">${d.tipo || (LANG==='en'?'Entity':'Entità')}</span>
+        <h2>${d.nome || ''}</h2>
+        <p class="sintesi">${d.sintesi || ''}</p>
+      </div>
+    </div>`;
   if (d.percezione_ai) {
-    const existing = document.getElementById('percezioneBox');
-    if (existing) existing.remove();
-    document.getElementById('scoreHeroWrap').insertAdjacentHTML('afterend', `
-      <div id="percezioneBox" style="background:var(--surface);border:1px solid var(--border);padding:1.25rem 1.5rem;margin-bottom:1rem">
-        <div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem">${LANG==='en' ? 'How an AI perceives me' : 'Come mi percepisce un sistema AI'}</div>
-        <p style="font-size:.78rem;color:var(--muted);line-height:1.8;margin:0;font-style:italic">"${d.percezione_ai}"</p>
-      </div>`);
+    if (!document.getElementById('percezioneBox')) {
+      document.getElementById('scoreHeroWrap').insertAdjacentHTML('afterend', `
+        <div id="percezioneBox" style="background:var(--surface);border:1px solid var(--border);padding:1.25rem 1.5rem;margin-bottom:1rem">
+          <div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem">${LANG==='en'?'How an AI perceives me':'Come mi percepisce un sistema AI'}</div>
+          <p style="font-size:.78rem;color:var(--muted);line-height:1.8;margin:0;font-style:italic">"${d.percezione_ai}"</p>
+        </div>`);
+    }
   }
-  
   if (signals || aiFiles) {
     const jq = signals?.jsonLdQuality;
-    const trapped = window._fetchTrapped || (!signals && window._fetchTrapped !== false);
     const tags = [
-      ...(trapped ? [{l: '⚠ Pagina con redirect JS — dati parziali', v: false, warn: true}] : []),
-      {l: signals?.jsonLd?.length > 0 ? (jq?.isPlugin ? `⚠️ Plugin (${jq.source.split(' ')[0]})` : '✅ Schema manuale') : 'JSON-LD assente', v: signals?.jsonLd?.length > 0, warn: jq?.isPlugin},
-      {l: 'sameAs', v: (signals?.sameAs?.length || 0) > 0},
+      {l: signals?.jsonLd?.length > 0 ? (jq?.isPlugin ? `⚠️ Plugin (${(jq.source||'').split(' ')[0]})` : '✅ Schema manuale') : 'JSON-LD assente', v: signals?.jsonLd?.length > 0, warn: jq?.isPlugin},
+      {l: 'sameAs', v: (signals?.sameAs?.length||0) > 0},
       {l: 'Wikidata', v: jq?.hasWikidata || false},
       {l: 'Wikipedia', v: jq?.hasWikipedia || false},
       {l: 'llms.txt', v: !!aiFiles?.llmsTxt},
       {l: 'robots.txt', v: !!aiFiles?.robotsTxt},
-      {l: aiFiles?.sitemapUrl ? `sitemap (${aiFiles.sitemapUrl.replace(/^https?:\/\/[^/]+/,'')})` : 'sitemap', v: !!aiFiles?.sitemapXml},
-      {l: 'Dominio proprio', v: signals?.hasCustomDomain ?? true}
+      {l: aiFiles?.sitemapUrl ? `sitemap` : 'sitemap', v: !!aiFiles?.sitemapXml}
     ];
-    document.getElementById('dataBar').innerHTML = `<div class="data-bar">
-      <span style="font-size:.58rem;color:var(--dim)">Segnali AI →</span>
-      ${tags.map(t => `<span class="dtag ${t.warn ? 'warn' : t.v ? 'yes' : 'no'}">${t.warn ? '⚠' : t.v ? '✓' : '✗'} ${t.l}</span>`).join('')}
-    </div>`;
+    document.getElementById('dataBar').innerHTML = `<div class="data-bar">${tags.map(t => `<span class="dtag ${t.warn?'warn':t.v?'yes':'no'}">${t.warn?'⚠':t.v?'✓':'✗'} ${t.l}</span>`).join('')}</div>`;
   }
-  
-  document.getElementById('dimsGrid').innerHTML = (d.dimensioni || []).map(dim => {
+  document.getElementById('dimsGrid').innerHTML = d.dimensioni.map(dim => {
     const rating = scoreToRating(dim.score);
-    return `
-      <div class="dim-card">
-        <div class="dim-top">
-          <div class="dim-name">${dim.nome}</div>
-          <div style="text-align:right">
-            <div class="dim-score-n" style="color:${sc(dim.score)}">${dim.score}</div>
-            <div style="font-size:.6rem; color:${rating.color}">${rating.label}</div>
-          </div>
+    return `<div class="dim-card">
+      <div class="dim-top">
+        <div class="dim-name">${dim.nome}</div>
+        <div style="text-align:right">
+          <div class="dim-score-n" style="color:${sc(dim.score)}">${dim.score}</div>
+          <div style="font-size:.6rem;color:${rating.color}">${rating.label}</div>
         </div>
-        <div class="bar-bg"><div class="bar-fill" data-w="${dim.score}" style="background:${sc(dim.score)}"></div></div>
-        <div class="dim-sintesi">${dim.sintesi}</div>
-        ${dim.gap && dim.gap !== 'undefined' ? `<div class="dim-gap">${dim.gap}</div>` : ''}
-      </div>`;
-  }).join('');
-  
-  // Fallback per passi malformati
-  let passi = (d.passi || []).filter(p => p && typeof p === 'object' && p.a);
-  if (passi.length === 0 && (d.lacune && d.lacune.length > 0)) {
-    passi = [{ p: 'media', a: 'Rivedi la configurazione del JSON restituito da Gemini per l\'array "passi".' }];
-  }
-  
-  document.getElementById('bottomGrid').innerHTML = `
-    <div class="bottom-card">
-      <div class="bottom-title" style="color:#2DB885">${LANG==='en' ? 'Strengths' : 'Punti di forza'}</div>
-      ${(d.forze || []).map(f => `<div class="b-item"><span class="b-icon" style="color:#2DB885">◆</span>${f}</div>`).join('')}
-    </div>
-    <div class="bottom-card">
-      <div class="bottom-title" style="color:#D84F35">${LANG==='en' ? 'Critical gaps' : 'Lacune critiche'}</div>
-      ${(d.lacune || []).map(l => `<div class="b-item"><span class="b-icon" style="color:#D84F35">◆</span>${l}</div>`).join('')}
-    </div>
-    <div class="bottom-card">
-      <div class="bottom-title" style="color:#D4870E">${LANG==='en' ? 'Next steps' : 'Prossimi passi'}</div>
-      ${passi.map(p => `<div class="step-item">
-        <div class="step-p" style="color:${p.p==='alta'||p.p==='high'?'#D84F35':p.p==='media'||p.p==='medium'?'#D4870E':'#8080A0'}">↑ ${p.p}</div>
-        <div class="step-a">${p.a}</div>
-      </div>`).join('')}
+      </div>
+      <div class="bar-bg"><div class="bar-fill" data-w="${dim.score}" style="background:${sc(dim.score)}"></div></div>
+      <div class="dim-sintesi">${dim.sintesi || ''}</div>
+      ${dim.gap && dim.gap!=='undefined' ? `<div class="dim-gap">${dim.gap}</div>` : ''}
     </div>`;
-  
+  }).join('');
+  let passi = (d.passi || []).filter(p => p && typeof p==='object' && p.a);
+  if (passi.length === 0 && d.lacune && d.lacune.length) passi = [{p:'media',a:'Verifica la configurazione dell\'array "passi" nel JSON restituito.'}];
+  document.getElementById('bottomGrid').innerHTML = `
+    <div class="bottom-card"><div class="bottom-title" style="color:#2DB885">${LANG==='en'?'Strengths':'Punti di forza'}</div>${(d.forze||[]).map(f=>`<div class="b-item"><span class="b-icon" style="color:#2DB885">◆</span>${f}</div>`).join('')}</div>
+    <div class="bottom-card"><div class="bottom-title" style="color:#D84F35">${LANG==='en'?'Critical gaps':'Lacune critiche'}</div>${(d.lacune||[]).map(l=>`<div class="b-item"><span class="b-icon" style="color:#D84F35">◆</span>${l}</div>`).join('')}</div>
+    <div class="bottom-card"><div class="bottom-title" style="color:#D4870E">${LANG==='en'?'Next steps':'Prossimi passi'}</div>${passi.map(p=>`<div class="step-item"><div class="step-p" style="color:${p.p==='alta'||p.p==='high'?'#D84F35':p.p==='media'||p.p==='medium'?'#D4870E':'#8080A0'}">↑ ${p.p}</div><div class="step-a">${p.a}</div></div>`).join('')}</div>`;
   document.getElementById('resultsSection').style.display = 'block';
-  requestAnimationFrame(() => setTimeout(() => {
+  requestAnimationFrame(()=>setTimeout(()=>{
     const ring = document.getElementById('scoreRing');
     if (ring) ring.style.strokeDashoffset = off;
-    let c = 0, total = d.score;
-    const iv = setInterval(() => {
-      c = Math.min(c+1, total);
-      const numEl = document.getElementById('scoreNum');
-      if (numEl) numEl.textContent = c;
-      if (c >= total) clearInterval(iv);
-    }, 1500/total);
-    document.querySelectorAll('.bar-fill').forEach(b => { b.style.width = b.dataset.w + '%'; });
-  }, 60));
+    let c=0, total=d.score;
+    const iv = setInterval(()=>{ c=Math.min(c+1,total); const el=document.getElementById('scoreNum'); if(el) el.textContent=c; if(c>=total) clearInterval(iv); }, 1500/total);
+    document.querySelectorAll('.bar-fill').forEach(b=>{ b.style.width = b.dataset.w+'%'; });
+  },60));
 }
 
 function downloadPdf() {
   const url = document.getElementById('urlInput')?.value || 'report';
   const domain = url.replace(/https?:\/\//,'').replace(/\/.*/,'').replace(/[^a-z0-9.-]/gi,'_');
-  document.title = 'AI Readiness — ' + domain;
+  document.title = 'AI Readiness — '+domain;
   window.print();
-  setTimeout(() => { document.title = (LANG === 'en' ? 'Who are you in the AI era?' : "Chi sei nell'era dell'AI?"); }, 1000);
+  setTimeout(()=>{ document.title = (LANG==='en'?'Who are you in the AI era?':"Chi sei nell'era dell'AI?"); },1000);
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', ()=>{
   renderLang();
-  document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
+  document.getElementById('urlInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runAnalysis(); });
 });
 </script>
 </body>
