@@ -248,6 +248,31 @@ const I18N={
 let LANG='it';
 function t(k){return I18N[LANG][k]??k}
 
+  async function checkDomainHistory(url) {
+  const domain = new URL(url).hostname;
+  const years = [1, 2, 5];
+  let historyBonus = 0;
+  let found = [];
+  const now = new Date();
+  const checks = years.map(async (y) => {
+    const ts = new Date(now.getFullYear()-y, now.getMonth(), now.getDate()).toISOString().slice(0,10).replace(/-/g,'');
+    try {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 3000);
+      const r = await fetch(`https://archive.org/wayback/available?url=${domain}&timestamp=${ts}`, { signal: controller.signal });
+      clearTimeout(id);
+      const data = await r.json();
+      if(data.archived_snapshots?.closest) { found.push(y); return true; }
+    } catch(e) {}
+    return false;
+  });
+  await Promise.all(checks);
+  if(found.includes(1)) historyBonus += 5;
+  if(found.includes(2)) historyBonus += 5;
+  if(found.includes(5)) historyBonus += 10;
+  return { bonus: historyBonus, years: found };
+}
+  
 function setTone(n){
   TONE=n;
   document.querySelectorAll('.tone-btn').forEach((b,i)=>b.classList.toggle('active',i+1===n));
@@ -459,104 +484,49 @@ function analyzeJsonLdQuality(jsonLd,platform=''){
     hasWikipedia:JSON.stringify(allObjects).includes('wikipedia.org'),
   };
 }
+function computeScores(signals, aiFiles, history) {
+  let l=0, g=0, c=0, p=0, pr=0;
+  const ld = JSON.stringify(signals.jsonLd || "");
 
-function computeScores(signals,aiFiles){
-  const jq=signals?.jsonLdQuality||{present:false,isPlugin:false,richness:0,hasWikidata:false,hasWikipedia:false};
-  const sameAs=signals?.sameAs||[];
-  const allObjs=(signals?.jsonLd||[]).flatMap(j=>j['@graph']||[j]);
-  const platform=signals?.platform||'unknown';
-  const entity=allObjs.find(o=>['Person','ProfilePage','Organization','LocalBusiness','NGO'].includes(o['@type']))
-    ||allObjs.find(o=>['Product','Store','OnlineStore'].includes(o['@type']));
-  const isProductEntity=['Product','Store','OnlineStore'].includes(entity?.['@type']);
-
-  // 1. Leggibilità AI (30%) — quanto il sito è comprensibile dai sistemi AI
-  let legg=0;
-  if(jq.present){
-    legg+=jq.isPlugin?20:(jq.source?.includes('nativo')?35:45);
-    legg+=jq.richness>60?20:jq.richness>30?10:3;
-    // publishingPrinciples nel JSON-LD = istruzione esplicita per i sistemi AI
-    if(allObjs.some(o=>o.publishingPrinciples))legg+=15;
+  // 1. LEGGIBILITÀ (30%)
+  if(signals.jsonLd.length > 0) { 
+    l += signals.isPlugin ? 25 : 45; 
+    if(ld.includes('"@graph"')) l += 15; 
   }
-  if(signals?.ogTitle||signals?.ogDescription)legg+=10;
-  if(signals?.description)legg+=10;
-  if(signals?.title)legg+=5;
-  // Rimosso: twitterCard — non rilevante per AI identity
+  if(signals.description) l += 20; 
+  if(signals.title) l += 20;
 
-  // 2. Grafo di Conoscenza (25%) — entità verificabile nei knowledge graph
-  let grafo=0;
-  if(jq.hasWikidata)grafo+=50;
-  if(jq.hasWikipedia)grafo+=25;
-  if(sameAs.length>0)grafo+=10;
-  if(sameAs.some(s=>/linkedin\.com/i.test(s)))grafo+=10;
-  if(sameAs.some(s=>/github\.com/i.test(s)))grafo+=5;
-  // Credenziali verificabili con URL = segnale di entità reale
-  if(allObjs.some(o=>o.hasCredential))grafo+=5;
-  // Rimosso: Google Maps CID (rilevante solo per local business)
+  // 2. GRAFO / DISAMBIGUAZIONE (25%)
+  if(ld.includes('knowsAbout')) { 
+    g += 20; 
+    if(ld.match(/knowsAbout[^}]*(wikidata|wikipedia|google\.com\/kg|@id)/i)) g += 30; 
+  }
+  if(ld.includes('wikidata.org')) g += 20;
+  if(ld.includes('linkedin.com')) g += 15;
+  if(ld.includes('github.com')) g += 15;
 
-  // 3. Coerenza Identità (20%) — unicità e verificabilità dell'entità
-  let coer=0;
-  if(signals?.hasCustomDomain)coer+=25;
-  if(signals?.canonical)coer+=15;
-  if(allObjs.some(o=>o.mainEntityOfPage||o['@type']==='ProfilePage'))coer+=20;
-  if(sameAs.length>0)coer+=15;
-  if(signals?.h1s?.length>0&&signals?.description)coer+=10;
-  // vatID = entità legale verificabile dallo Stato
-  if(allObjs.some(o=>o.vatID))coer+=15;
-  if(isProductEntity&&(platform==='shopify'||platform==='prestashop'))coer+=15;
+  // 3. COERENZA & STORIA (20%)
+  if(ld.includes('"@id"')) c += 40;
+  c += (history ? history.bonus : 0); 
+  if(signals.sameAs.length > 1) c += 40;
 
-  // 4. Politica AI (15%) — preparazione esplicita per i crawler AI
-  let pol=0;
-  const fileStatus=(file,statusKey)=>{
-    if(file)return'found';
-    if(aiFiles?.[statusKey]==='unreachable')return'unreachable';
-    return'absent';
-  };
-  const llmsStatus=fileStatus(aiFiles?.llmsTxt,'llmsTxtStatus');
-  const robotsStatus=fileStatus(aiFiles?.robotsTxt,'robotsTxtStatus');
-  const sitemapStatus=aiFiles?.sitemapXml?'found':(aiFiles?.sitemapStatus==='unreachable'?'unreachable':'absent');
-  if(llmsStatus==='found')pol+=55;
-  else if(llmsStatus==='unreachable')pol+=5;
-  if(robotsStatus==='found'){
-    pol+=20;
-    const rb=(aiFiles.robotsTxt||'').toLowerCase();
-    if(!rb.includes('gptbot')&&!rb.includes('ccbot')&&!rb.includes('anthropic-ai'))pol+=15;
-  }else if(robotsStatus==='unreachable')pol+=3;
-  if(sitemapStatus==='found')pol+=10;
-  else if(sitemapStatus==='unreachable')pol+=2;
+  // 4. ACCESSIBILITÀ AI (15%)
+  if(aiFiles.llmsTxt) p += 60;
+  if(aiFiles.robotsTxt && /gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) {
+    p += 40;
+  } else if(aiFiles.robotsTxt) {
+    p += 20;
+  }
 
-  // 5. Profondità Entità (10%) — specificità e completezza del profilo
-  let prof=0;
-  if(entity){
-    if(isProductEntity){
-      if(entity.name)prof+=10;if(entity.description)prof+=15;if(entity.image)prof+=10;
-      if(entity.offers)prof+=20;if(entity.brand)prof+=15;
-      if(entity.sku||entity.gtin||entity.mpn)prof+=15;
-      if(entity.aggregateRating)prof+=10;if(entity.review)prof+=5;
-    }else{
-      if(entity.jobTitle)prof+=10;
-      if(entity.worksFor||entity.affiliation||entity.memberOf)prof+=10;
-      if(entity.knowsAbout){
-        prof+=15;
-        const knows=Array.isArray(entity.knowsAbout)?entity.knowsAbout:[entity.knowsAbout];
-        if(knows.some(k=>k&&(k['@id']||k.sameAs||k.identifier)))prof+=10;
-      }
-      if(entity.description)prof+=10;
-      if(entity.image)prof+=10;
-      if(entity.hasCredential)prof+=10;   // credenziali verificabili
-      if(entity.hasOccupation)prof+=5;    // occupazione tipizzata
-      if(entity.vatID)prof+=5;            // identità fiscale verificabile
-      if(entity.homeLocation)prof+=3;     // localizzazione dichiarata
-      if(entity.url||entity.sameAs)prof+=5;
-      if(entity.alumniOf)prof+=3;
-      if(entity.award||entity.subjectOf)prof+=5;
-      if(entity.address||entity.telephone||entity.email)prof+=3;
-    }
-  }else if((signals?.bodyExcerpt||'').length>100)prof=15;
+  // 5. PROFILO (10%)
+  if(ld.includes('jobTitle')) pr += 40;
+  if(ld.includes('hasCredential') || ld.includes('award')) pr += 30;
+  if(ld.includes('image')) pr += 30;
 
-  const cap=v=>Math.min(100,Math.round(v));
-  const l=cap(legg),g=cap(grafo),c=cap(coer),p=cap(pol),pr=cap(prof);
-  const overall=Math.round(l*.30+g*.25+c*.20+p*.15+pr*.10);
-  return{overall,leggibilita:l,grafo:g,coerenza:c,politica:p,profilo:pr};
+  const cap = v => Math.min(100, Math.round(v));
+  const s = { leggibilita:cap(l), grafo:cap(g), coerenza:cap(c), politica:cap(p), profilo:cap(pr) };
+  s.overall = Math.round(s.leggibilita*.3 + s.grafo*.25 + s.coerenza*.2 + s.politica*.15 + s.profilo*.1);
+  return s;
 }
 
 function normalizeUrl(raw){
@@ -577,12 +547,13 @@ async function runAnalysis(){
   document.getElementById('loadingSection').style.display='block';
   document.getElementById('resultsSection').style.display='none';
   document.getElementById('btnAnalyze').disabled=true;
+  const history = await checkDomainHistory(url);
 
   setStep(1);const html=await fetchPage(url);
   setStep(2);const signals=html?extractSignals(html,url):null;
   setStep(3);let aiFiles={llmsTxt:null,robotsTxt:null,sitemapXml:false};
   try{aiFiles=await fetchAiFiles(url)}catch{}
-  setStep(4);const scores=computeScores(signals,aiFiles);
+  setStep(4);const scores=computeScores(signals,aiFile,shistory);
   console.log('Computed scores:',JSON.stringify(scores));
 
   const langInstruction=LANG==='en'?
@@ -617,21 +588,38 @@ Proprietà INESISTENTI che non devono MAI essere suggerite: dataUsagePolicy, con
       'TONO 5 — ESPERTO AI: Massimo dettaglio tecnico. Analisi approfondita di ogni segnale. Usa tutta la terminologia specializzata: Knowledge Graph, entity disambiguation, training data, crawler directives.',
   };
 
-  const sysPrompt=langInstruction+schemaConstraint+(
-    (isEN?
-      'You are a digital communication consultant explaining to entrepreneurs and managers how well their online presence is understood by AI systems. Your language is clear, direct, and concrete.\n\nHOW TO TRANSLATE TECHNICAL CONCEPTS:\n- No JSON-LD/schema → "the site has no readable identity card for AI"\n- Plugin-generated → "data is auto-generated and hard to customize"\n- No Wikidata → "no link to authoritative sources — AIs cannot verify who you are"\n- No llms.txt → "no explicit instructions for AI systems on how to use your content"\n':
-      'Sei un consulente di comunicazione digitale che spiega a imprenditori e manager quanto bene la loro presenza online è comprensibile dai sistemi di intelligenza artificiale. Il tuo linguaggio è chiaro, diretto, concreto.\n\nCOME TRADURRE I CONCETTI TECNICI:\n- JSON-LD/schema assente → "il sito non ha un biglietto da visita leggibile dalle AI"\n- JSON-LD da plugin → "i dati sono generati automaticamente e difficili da personalizzare"\n- sameAs/Wikidata mancante → "nessun collegamento a fonti autorevoli — le AI non possono verificare chi sei"\n- llms.txt assente → "nessuna istruzione esplicita per i sistemi AI su come usare i tuoi contenuti"\n'
-    )+'\n'+
-    (isEN?
-      'DIMENSIONS TO EVALUATE:\n1. AI READABILITY — How clear is your site for an AI?\n2. DIGITAL AUTHORITY — Do AIs recognize you as a reliable source?\n3. IDENTITY CONSISTENCY — Does the site speak with one voice?\n4. AI ACCESSIBILITY — Have you prepared the site for the AI era?\n5. PROFILE & EXPERTISE — How recognizable and specific are you?\n':
-      'DIMENSIONI DA VALUTARE:\n1. LEGGIBILITÀ AI — Quanto è chiaro il tuo sito per una AI?\n2. AUTOREVOLEZZA DIGITALE — Le AI ti riconoscono come fonte affidabile?\n3. COERENZA DELL\'IDENTITÀ — Il sito parla con una voce sola?\n4. ACCESSIBILITÀ AI — Hai preparato il sito per l\'era dell\'AI?\n5. PROFILO E COMPETENZE — Quanto sei riconoscibile e specifico?\n'
-    )+'\n'+
-    (isEN?
-      'Respond ONLY with valid JSON. Do NOT include "score" fields:\n{"nome":"...","tipo":"Person|Organization|Brand|E-commerce|Product","percezione_ai":"3-5 sentences as external AI describing this entity","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"what works in accessible language","gap":"missed opportunity in business terms"},{"id":"grafo","nome":"Digital Authority","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"politica","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile & Expertise","sintesi":"...","gap":"..."}],"forze":["concrete strength 1","strength 2","strength 3"],"lacune":["missed opportunity 1","missed opportunity 2","missed opportunity 3"],"passi":[{"p":"high","a":"delegable concrete action"},{"p":"high","a":"delegable action"},{"p":"medium","a":"delegable action"}],"sintesi":"2-3 sentence overall assessment"}\n':
-      'Rispondi SOLO con JSON valido. NON includere campi "score":\n{"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi come AI esterna che descrive questa entita","dimensioni":[{"id":"leggibilita","nome":"Leggibilita AI","sintesi":"cosa funziona in linguaggio accessibile","gap":"opportunita persa in termini di business"},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identita","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilita AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":["forza 1","forza 2","forza 3"],"lacune":["lacuna 1","lacuna 2","lacuna 3"],"passi":[{"p":"alta","a":"azione delegabile"},{"p":"alta","a":"azione"},{"p":"media","a":"azione"}],"sintesi":"valutazione complessiva in 2-3 frasi"}\n'
-    )+
-    '\nREQUIRED DETAIL LEVEL: '+TONE+'/5 — '+t('toneLevels')[TONE-1]+'\n'+
-    toneDescriptions[TONE]+'\n'
+   const sysPrompt = langInstruction + schemaConstraint + (
+    (isEN ? 
+      `You are an AI Identity expert. Respond ONLY with valid JSON. 
+      LOCKED SCORES (DO NOT CHANGE): Overall: ${scores.overall}, Leggibilita: ${scores.leggibilita}, Grafo: ${scores.grafo}, Coerenza: ${scores.coerenza}, Politica: ${scores.politica}, Profilo: ${scores.profilo}.
+      Domain History: Found snapshots for years: ${history.years.join(', ') || 'none'}.
+      
+      DIMENSIONS TO EVALUATE:
+      1. AI READABILITY — How clear is your site for an AI?
+      2. DIGITAL AUTHORITY — Do AIs recognize you as a reliable source?
+      3. IDENTITY CONSISTENCY — Does the site speak with one voice?
+      4. AI ACCESSIBILITY — Have you prepared the site for the AI era?
+      5. PROFILE & EXPERTISE — How recognizable and specific are you?
+
+      Respond ONLY with valid JSON. Do NOT include "score" fields:
+      {"nome":"...","tipo":"Person|Organization|Brand|E-commerce|Product","percezione_ai":"3-5 sentences","dimensioni":[{"id":"leggibilita","nome":"AI Readability","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Digital Authority","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Identity Consistency","sintesi":"...","gap":"..."},{"id":"politica","nome":"AI Accessibility","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profile & Expertise","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[],"sintesi":"..."}\n` :
+      
+      `Sei un esperto di AI Identity. Rispondi SOLO con JSON valido. 
+      PUNTEGGI BLOCCATI (NON MODIFICARE): Overall: ${scores.overall}, Leggibilita: ${scores.leggibilita}, Grafo: ${scores.grafo}, Coerenza: ${scores.coerenza}, Politica: ${scores.politica}, Profilo: ${scores.profilo}.
+      Storia Dominio: Snapshot trovati per anni: ${history.years.join(', ') || 'nessuno'}.
+
+      DIMENSIONI DA VALUTARE:
+      1. LEGGIBILITÀ AI — Quanto è chiaro il tuo sito per una AI?
+      2. AUTOREVOLEZZA DIGITALE — Le AI ti riconoscono come fonte affidabile?
+      3. COERENZA DELL'IDENTITÀ — Il sito parla con una voce sola?
+      4. ACCESSIBILITÀ AI — Hai preparato il sito per l'era dell'AI?
+      5. PROFILO E COMPETENZE — Quanto sei riconoscibile e specifico?
+
+      Rispondi SOLO con JSON valido. NON includere campi "score":
+      {"nome":"...","tipo":"Persona|Organizzazione|Brand|E-commerce|Prodotto","percezione_ai":"3-5 frasi","dimensioni":[{"id":"leggibilita","nome":"Leggibilita AI","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Autorevolezza Digitale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identita","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilita AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo e Competenze","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[],"sintesi":"..."}\n`
+    ) + 
+    '\nREQUIRED DETAIL LEVEL: ' + TONE + '/5 — ' + t('toneLevels')[TONE - 1] + '\n' +
+    toneDescriptions[TONE] + '\n'
   );
 
   const scoresInfo=`
