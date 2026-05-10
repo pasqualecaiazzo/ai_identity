@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-/* ===== STILI COMPLETI (invariati) ===== */
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#07070F;--surface:#0D0D1C;--surface2:#111120;
@@ -381,14 +380,14 @@ async function fetchAiFiles(baseUrl){
   return results;
 }
 
-// ================ ALGORITMO DI PUNTEGGIO (SOLO AI READINESS) ================
+// ================ ALGORITMO DI PUNTEGGIO ================
 function computeScores(signals, aiFiles, history, html) {
   if(!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
   const allObjects = signals.jsonLd.flatMap(j=>j['@graph']||[j]);
   const person = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
   const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
   
-  // 1. LEGGIBILITÀ AI (max 100)
+  // 1. LEGGIBILITÀ AI
   let l = 0;
   if(signals.jsonLd.length>0){ l+=40; l+=isManual?30:10; if(JSON.stringify(signals.jsonLd).includes('"@graph"')) l+=10; }
   if(signals.title) l+=5;
@@ -401,9 +400,8 @@ function computeScores(signals, aiFiles, history, html) {
   if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l+=10;
   l = Math.min(100,l);
   
-  // 2. COERENZA IDENTITÀ (rivista, più generosa)
+  // 2. COERENZA IDENTITÀ (con gestione URL sicura)
   let c = 0;
-  // Allineamento title vs name (max 25)
   if(signals.title && person?.name){
     const titleClean = signals.title.toLowerCase().replace(/[^a-z0-9\s]/g,'');
     const nameClean = person.name.toLowerCase().replace(/[^a-z0-9\s]/g,'');
@@ -412,7 +410,7 @@ function computeScores(signals, aiFiles, history, html) {
     else if(nameClean.includes(titleClean)) c+=18;
     else c+=10;
   } else if(signals.title) c+=5;
-  // Allineamento description basato su parole chiave (max 20)
+  
   if(signals.description && person?.description){
     const descWords = signals.description.toLowerCase().split(/\s+/).filter(w=>w.length>3);
     const persWords = person.description.toLowerCase().split(/\s+/).filter(w=>w.length>3);
@@ -421,33 +419,41 @@ function computeScores(signals, aiFiles, history, html) {
     let ratio = maxPossible > 0 ? common / maxPossible : 0;
     c += Math.min(20, Math.round(ratio * 20));
   } else if(signals.description) c+=5;
-  // Immagine (max 10)
-  if(signals.ogImage && person?.image && new URL(signals.ogImage).origin === new URL(person.image).origin) c+=10;
-  // Canonical (max 10)
-  if(signals.canonical && signals.url && (signals.canonical===signals.url || new URL(signals.canonical).pathname === new URL(signals.url).pathname)) c+=10;
-  // @id su Person (max 10)
+  
+  let imageMatch = false;
+  if(signals.ogImage && person?.image) {
+    try { imageMatch = (new URL(signals.ogImage).origin === new URL(person.image).origin); } catch(e) {}
+  }
+  if(imageMatch) c+=10;
+  
+  if(signals.canonical && signals.url) {
+    try {
+      const canon = new URL(signals.canonical);
+      const page = new URL(signals.url);
+      if(canon.href === page.href || canon.pathname === page.pathname) c+=10;
+    } catch(e) {}
+  }
+  
   if(person && person['@id']) c+=10;
-  // sameAs (max 5)
   if(person && person.sameAs && (Array.isArray(person.sameAs)?person.sameAs.length:1)>0) c+=5;
-  // BONUS: affiliazioni multiple (fino a 15 punti)
+  
   let affCount = 0;
   if(person){
     if(person.affiliation) affCount += Array.isArray(person.affiliation)?person.affiliation.length:1;
     if(person.worksFor) affCount += Array.isArray(person.worksFor)?person.worksFor.length:1;
   }
   c += Math.min(15, affCount * 3);
-  // Storia dominio (bonus piccolo, max 5)
   c += Math.min(5, history.bonus);
   c = Math.min(100, c);
   
-  // 3. ACCESSIBILITÀ AI (max 100)
+  // 3. ACCESSIBILITÀ AI
   let p = 0;
   if(aiFiles?.llmsTxt) p+=50;
   if(aiFiles?.robotsTxt){ if(/gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p+=35; else p+=20; }
   if(aiFiles?.sitemapXml) p+=15;
   p = Math.min(100,p);
   
-  // 4. PROFILO (max 100)
+  // 4. PROFILO
   let pr = 0;
   if(person){
     if(person.name) pr+=15;
@@ -470,7 +476,7 @@ function computeScores(signals, aiFiles, history, html) {
   }
   pr = Math.min(100, Math.round(pr));
   
-  // 5. RETE PROFESSIONALE (solo link professionali, niente citazioni)
+  // 5. RETE PROFESSIONALE (solo linkedin/github/knowsAbout)
   let g = 0;
   if(person){
     const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
@@ -560,26 +566,20 @@ function scoreToRating(score){
 }
 function renderResults(d, signals, aiFiles, scores) {
   d.score = scores.overall;
-  
-  // Mappa nomi alternativi delle dimensioni agli ID standard
   const dimMap = {
-    'leggibilita': 'leggibilita', 'leggibilità': 'leggibilita',
-    'grafo': 'grafo', 'autorita': 'grafo', 'autorità': 'grafo', 'rete professionale': 'grafo', 'rete_professionale': 'grafo', 'rete': 'grafo', 'professional network': 'grafo',
-    'coerenza': 'coerenza',
-    'politica': 'politica', 'accessibilita': 'politica', 'accessibilità': 'politica', 'accessibilita_ai': 'politica', 'accessibilità ai': 'politica',
-    'profilo': 'profilo'
+    'leggibilita':'leggibilita', 'leggibilità':'leggibilita',
+    'grafo':'grafo', 'autorita':'grafo', 'autorità':'grafo', 'rete professionale':'grafo', 'rete_professionale':'grafo', 'rete':'grafo', 'professional network':'grafo',
+    'coerenza':'coerenza',
+    'politica':'politica', 'accessibilita':'politica', 'accessibilità':'politica', 'accessibilita_ai':'politica', 'accessibilità ai':'politica',
+    'profilo':'profilo'
   };
-  
-  // Inizializza dimensioni standard con i punteggi calcolati
   const standardDims = {
-    leggibilita: { id: 'leggibilita', nome: LANG==='en'?'AI Readability':'Leggibilità AI', score: scores.leggibilita, sintesi: '', gap: '' },
-    grafo: { id: 'grafo', nome: LANG==='en'?'Professional Network':'Rete Professionale', score: scores.grafo, sintesi: '', gap: '' },
-    coerenza: { id: 'coerenza', nome: LANG==='en'?'Identity Consistency':'Coerenza Identità', score: scores.coerenza, sintesi: '', gap: '' },
-    politica: { id: 'politica', nome: LANG==='en'?'AI Accessibility':'Accessibilità AI', score: scores.politica, sintesi: '', gap: '' },
-    profilo: { id: 'profilo', nome: LANG==='en'?'Profile':'Profilo', score: scores.profilo, sintesi: '', gap: '' }
+    leggibilita: { id:'leggibilita', nome:LANG==='en'?'AI Readability':'Leggibilità AI', score:scores.leggibilita, sintesi:'', gap:'' },
+    grafo: { id:'grafo', nome:LANG==='en'?'Professional Network':'Rete Professionale', score:scores.grafo, sintesi:'', gap:'' },
+    coerenza: { id:'coerenza', nome:LANG==='en'?'Identity Consistency':'Coerenza Identità', score:scores.coerenza, sintesi:'', gap:'' },
+    politica: { id:'politica', nome:LANG==='en'?'AI Accessibility':'Accessibilità AI', score:scores.politica, sintesi:'', gap:'' },
+    profilo: { id:'profilo', nome:LANG==='en'?'Profile':'Profilo', score:scores.profilo, sintesi:'', gap:'' }
   };
-  
-  // Se Gemini ha fornito dimensioni, prendi i testi (sintesi, gap) ma mantieni i punteggi calcolati
   if (d.dimensioni && Array.isArray(d.dimensioni)) {
     for (let gemDim of d.dimensioni) {
       let originalId = (gemDim.id || '').toLowerCase();
@@ -590,20 +590,15 @@ function renderResults(d, signals, aiFiles, scores) {
       }
     }
   }
-  
   const dimensioniArray = Object.values(standardDims);
-  
   document.getElementById('loadingSection').style.display = 'none';
   document.getElementById('inputSection').style.display = 'none';
-  
   const R = 40, circ = (2 * Math.PI * R).toFixed(2), off = (circ - (d.score/100)*circ).toFixed(2), color = sc(d.score);
   const ratingTotal = scoreToRating(d.score);
   document.getElementById('scoreHeroWrap').innerHTML = `<div class="score-hero"><div class="ring-wrap"><svg width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" fill="none" stroke="#1C1C30" stroke-width="6"/><circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="6" stroke-dasharray="${circ}" stroke-dashoffset="${circ}" stroke-linecap="round" id="scoreRing"/></svg><div class="ring-center"><span class="ring-num" id="scoreNum" style="color:${color}">0</span><span class="ring-sub">/100</span><div style="font-size:.45rem;color:${ratingTotal.color};margin-top:4px;">${ratingTotal.label}</div></div></div><div class="hero-info"><span class="tipo">${d.tipo || (LANG==='en'?'Entity':'Entità')}</span><h2>${d.nome || ''}</h2><p class="sintesi">${d.sintesi || ''}</p></div></div>`;
-  
   if (d.percezione_ai && !document.getElementById('percezioneBox')) {
     document.getElementById('scoreHeroWrap').insertAdjacentHTML('afterend', `<div id="percezioneBox" style="background:var(--surface);border:1px solid var(--border);padding:1.25rem 1.5rem;margin-bottom:1rem"><div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem">${LANG==='en'?'How an AI perceives me':'Come mi percepisce un sistema AI'}</div><p style="font-size:.78rem;color:var(--muted);line-height:1.8;margin:0;font-style:italic">"${d.percezione_ai}"</p></div>`);
   }
-  
   if (signals || aiFiles) {
     const jq = signals?.jsonLdQuality;
     const tags = [
@@ -617,16 +612,13 @@ function renderResults(d, signals, aiFiles, scores) {
     ];
     document.getElementById('dataBar').innerHTML = `<div class="data-bar">${tags.map(t=>`<span class="dtag ${t.warn?'warn':t.v?'yes':'no'}">${t.warn?'⚠':t.v?'✓':'✗'} ${t.l}</span>`).join('')}</div>`;
   }
-  
   document.getElementById('dimsGrid').innerHTML = dimensioniArray.map(dim => {
     const rating = scoreToRating(dim.score);
     return `<div class="dim-card"><div class="dim-top"><div class="dim-name">${dim.nome}</div><div style="text-align:right"><div class="dim-score-n" style="color:${sc(dim.score)}">${dim.score}</div><div style="font-size:.6rem;color:${rating.color}">${rating.label}</div></div></div><div class="bar-bg"><div class="bar-fill" data-w="${dim.score}" style="background:${sc(dim.score)}"></div></div><div class="dim-sintesi">${dim.sintesi || ''}</div>${dim.gap && dim.gap!=='undefined' ? `<div class="dim-gap">${dim.gap}</div>` : ''}</div>`;
   }).join('');
-  
   let passi = (d.passi || []).filter(p => p && typeof p==='object' && p.a);
   if (passi.length === 0 && d.lacune && d.lacune.length) passi = [{p:'media', a:'Verifica la configurazione dell\'array "passi" nel JSON restituito.'}];
   document.getElementById('bottomGrid').innerHTML = `<div class="bottom-card"><div class="bottom-title" style="color:#2DB885">${LANG==='en'?'Strengths':'Punti di forza'}</div>${(d.forze||[]).map(f=>`<div class="b-item"><span class="b-icon" style="color:#2DB885">◆</span>${f}</div>`).join('')}</div><div class="bottom-card"><div class="bottom-title" style="color:#D84F35">${LANG==='en'?'Critical gaps':'Lacune critiche'}</div>${(d.lacune||[]).map(l=>`<div class="b-item"><span class="b-icon" style="color:#D84F35">◆</span>${l}</div>`).join('')}</div><div class="bottom-card"><div class="bottom-title" style="color:#D4870E">${LANG==='en'?'Next steps':'Prossimi passi'}</div>${passi.map(p=>`<div class="step-item"><div class="step-p" style="color:${p.p==='alta'||p.p==='high'?'#D84F35':p.p==='media'||p.p==='medium'?'#D4870E':'#8080A0'}">↑ ${p.p}</div><div class="step-a">${p.a}</div></div>`).join('')}</div>`;
-  
   document.getElementById('resultsSection').style.display = 'block';
   requestAnimationFrame(() => setTimeout(() => {
     const ring = document.getElementById('scoreRing');
