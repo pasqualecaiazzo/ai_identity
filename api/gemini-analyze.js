@@ -1,4 +1,4 @@
-const MODEL = "gemini-3.1-flash";
+const MODEL = "gemini-3.1-flash-lite-preview";
 
 module.exports = async (req, res) => {
   // CORS
@@ -10,39 +10,58 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
   const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'Configurazione mancante.' });
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Configurazione mancante: GOOGLE_API_KEY non impostata.' });
+  }
 
   try {
-    const body = req.body;
-    
+    const requestBody = req.body;
+
+    // Aggiunge configurazione per output JSON strutturato (supportato da questo modello)
+    const geminiPayload = {
+      ...requestBody,
+      generationConfig: {
+        temperature: 0.2,          // Bassa variabilità per risultati consistenti
+        maxOutputTokens: 2048,     // Più che sufficiente per il JSON desiderato
+        responseMimeType: "application/json"  // FORZA risposta JSON valido
+      }
+    };
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...body,
-          generationConfig: {
-            temperature: 0.1, // Riduce la variazione dei testi
-            maxOutputTokens: 1500,
-            responseMimeType: "application/json" // Forza l'AI a rispondere solo con JSON
-          }
-        }),
-        signal: AbortSignal.timeout(30000)
+        body: JSON.stringify(geminiPayload),
+        signal: AbortSignal.timeout(35000) // 35 secondi max
       }
     );
 
     const data = await response.json();
-    
-    if (response.status !== 200) {
-      return res.status(response.status).json({ error: 'Errore API Gemini', detail: data });
+
+    if (!response.ok) {
+      console.error('Gemini API error:', response.status, data);
+      return res.status(response.status).json({
+        error: 'Errore API Gemini',
+        detail: data.error?.message || 'Risposta non valida'
+      });
     }
 
+    // Verifica minima della struttura
+    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return res.status(500).json({ error: 'Risposta Gemini malformata: nessun contenuto valido' });
+    }
+
+    // La risposta è già in JSON (responseMimeType lo garantisce)
+    // Restituiamo l'intero oggetto così com'è (il frontend lo parserà)
     res.setHeader('Content-Type', 'application/json');
     return res.status(200).json(data);
 
   } catch (err) {
     console.error('Backend Error:', err.message);
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'Timeout: Gemini non ha risposto in tempo' });
+    }
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 };
