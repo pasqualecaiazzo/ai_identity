@@ -79,6 +79,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .step-a{font-size:.7rem;color:var(--text);line-height:1.55}
 .btn-reset{display:block;width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;padding:.9rem;cursor:pointer;transition:all .2s}
 .btn-reset:hover{border-color:var(--gold);color:var(--gold)}
+.btn-reset:hover{border-color:var(--gold);color:var(--gold)}
 .footer{text-align:center;padding:2rem 0 0;font-size:.6rem;color:var(--dim);letter-spacing:.08em;border-top:1px solid var(--border)}
 .result-actions{display:flex;align-items:center;gap:1rem;margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
 .btn-pdf{background:var(--gold);color:var(--bg);border:none;font-family:'DM Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.4rem;cursor:pointer;transition:background .2s;white-space:nowrap}
@@ -117,13 +118,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   a{color:#C9A84C!important;text-decoration:none}
 }
 .lang-bar{display:flex;justify-content:flex-end;margin-bottom:1rem;gap:.25rem}
-.lang-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.18em;padding:.3rem .65rem;cursor:pointer;transition:all .2s}
+.lang-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:#.6rem;letter-spacing:.18em;padding:.3rem .65rem;cursor:pointer;transition:all .2s}
 .lang-btn:hover{border-color:var(--gold);color:var(--gold)}
 .lang-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.08)}
 .tone-row{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}
 .tone-label{font-size:.6rem;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
 .tone-btns{display:flex;gap:.35rem}
-.tone-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.1em;padding:.3rem .6rem;cursor:pointer;transition:all .2s;position:relative}
+.tone-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.1em;padding:.3rem .65rem;cursor:pointer;transition:all .2s;position:relative}
 .tone-btn:hover{border-color:var(--gold);color:var(--gold)}
 .tone-btn.active{border-color:var(--gold);color:var(--bg);background:var(--gold)}
 .tone-desc{font-size:.62rem;color:var(--dim);font-style:italic;flex:1;min-width:140px}
@@ -188,7 +189,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
   <div class="footer" id="i18n-footer"></div>
 </div>
-
 <script>
 // =======================  LINGUE E UI  =======================
 let TONE = 3;
@@ -200,8 +200,8 @@ const I18N = {
     fieldLabel: 'URL da analizzare',
     placeholder: 'https://tuosito.com',
     btnAnalyze: 'Analizza →',
-    s1: '— Recupero pagina...', s2: '— Estrazione dati strutturati...',
-    s3: '— Verifica llms.txt e robots.txt...', s4: '— Analisi AI readability...',
+    s1: '— Recupero pagina...', s2: '— Estrazione dati strutturati e semantica...',
+    s3: '— Verifica llms.txt, agents.md e robots.txt...', s4: '— Analisi AI readability...',
     btnReset: '← Nuova analisi',
     btnPdf: '↓ PDF',
     footer: 'Digital Identity Scanner — powered by Gemini AI',
@@ -219,8 +219,8 @@ const I18N = {
     fieldLabel: 'URL to analyze',
     placeholder: 'https://yoursite.com',
     btnAnalyze: 'Analyze →',
-    s1: '— Fetching page...', s2: '— Extracting structured data...',
-    s3: '— Checking llms.txt and robots.txt...', s4: '— AI readability analysis...',
+    s1: '— Fetching page...', s2: '— Extracting structured data & HTML semantics...',
+    s3: '— Checking llms.txt, agents.md and robots.txt...', s4: '— AI readability analysis...',
     btnReset: '← New analysis',
     btnPdf: '↓ PDF',
     footer: 'Digital Identity Scanner — powered by Gemini AI',
@@ -250,7 +250,6 @@ function hideErr(){ document.getElementById('errorBox').style.display='none'; }
 function setStep(n){ for(let i=1;i<=4;i++){ let e=document.getElementById('s'+i); if(e){ e.classList.remove('active','done'); if(i<n) e.classList.add('done'); else if(i===n) e.classList.add('active'); } } }
 function clearResults(){ document.getElementById('scoreHeroWrap').innerHTML=''; document.getElementById('dataBar').innerHTML=''; document.getElementById('dimsGrid').innerHTML=''; document.getElementById('bottomGrid').innerHTML=''; let p=document.getElementById('percezioneBox'); if(p) p.remove(); }
 function resetTool(){ clearResults(); document.getElementById('resultsSection').style.display='none'; document.getElementById('inputSection').style.display='block'; document.getElementById('inputSection').style.opacity='1'; document.getElementById('btnAnalyze').disabled=false; document.getElementById('urlInput').value=''; hideErr(); }
-
 // ================ CRONOLOGIA DOMINIO (via backend) ================
 async function checkDomainHistory(url){
   const domain = new URL(url).hostname;
@@ -274,7 +273,6 @@ async function checkDomainHistory(url){
   if(found.includes(5)) historyBonus+=10;
   return { bonus:historyBonus, years:found };
 }
-
 // ================ FETCH PAGINA (solo backend) ================
 async function fetchPage(url){
   try{
@@ -287,8 +285,7 @@ async function fetchPage(url){
   }catch(e){ console.error('Backend fetch error:',e); }
   return null;
 }
-
-// ================ ESTRAZIONE SEGNALI ================
+// ================ ESTRAZIONE SEGNALI E SEMANTICA HTML ================
 function extractSignals(html, url){
   const doc = new DOMParser().parseFromString(html,'text/html');
   const content = (sel)=>doc.querySelector(sel)?.getAttribute('content')||null;
@@ -297,6 +294,50 @@ function extractSignals(html, url){
   const jsonLd = jsonLdScripts.map(s=>{ try{ return JSON.parse(s.textContent); }catch{ return null; } }).filter(Boolean);
   const links = [...doc.querySelectorAll('a[href]')].map(a=>a.href);
   const allObjects = jsonLd.flatMap(j=>j['@graph']||[j]);
+  
+  // Rilevamento E-mail e Discrepanze di Dominio (Disambiguazione)
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  const emails = [...new Set((html || '').match(emailRegex) || [])];
+  const emailDiscrepancies = [];
+  let siteDomain = '';
+  try {
+    siteDomain = new URL(url).hostname.replace('www.', '').toLowerCase();
+  } catch(e) {}
+  
+  const sameAsList = allObjects.flatMap(o=>Array.isArray(o.sameAs)?o.sameAs:(o.sameAs?[o.sameAs]:[]));
+  
+  for (const email of emails) {
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+    if (emailDomain && siteDomain && emailDomain !== siteDomain) {
+      // Verifica se questo dominio secondario/email è menzionato nel grafo
+      const isDeclared = sameAsList.some(s => s.toLowerCase().includes(emailDomain)) || JSON.stringify(jsonLd).toLowerCase().includes(email.toLowerCase());
+      emailDiscrepancies.push({ email, domain: emailDomain, declared: isDeclared });
+    }
+  }
+  // Analisi Intestazioni (Gerarchia Titoli)
+  const headings = [...doc.querySelectorAll('h1, h2, h3, h4, h5, h6')].map(h => ({
+    level: parseInt(h.tagName[1]),
+    text: h.textContent.trim()
+  }));
+  const h1Count = headings.filter(h => h.level === 1).length;
+  const headingErrors = [];
+  let prevLevel = 0;
+  headings.forEach((h, idx) => {
+    if (idx === 0 && h.level !== 1) {
+      headingErrors.push(`Il primo titolo è H${h.level} anziché H1`);
+    } else if (idx > 0 && h.level > prevLevel + 1) {
+      headingErrors.push(`Salto di gerarchia: H${prevLevel} seguito da H${h.level}`);
+    }
+    prevLevel = h.level;
+  });
+  if (h1Count === 0) headingErrors.push("Manca H1 principale sulla homepage");
+  else if (h1Count > 1) headingErrors.push(`Trovati molteplici tag H1 (${h1Count})`);
+  // Analisi Immagini (ALT Text)
+  const images = [...doc.querySelectorAll('img')];
+  const totalImages = images.length;
+  const missingAlt = images.filter(img => !img.hasAttribute('alt') || img.getAttribute('alt').trim() === '').length;
+  // Analisi Dati Strutturati Addizionali
+  const hasLocalBusiness = allObjects.some(o => ['LocalBusiness', 'Store', 'ProfessionalService', 'Showroom'].includes(o['@type']) || (Array.isArray(o['@type']) && o['@type'].some(t => ['LocalBusiness', 'Store'].includes(t))));
   return {
     url, title:doc.title||null, description:content('meta[name="description"]'), canonical:hrefAttr('link[rel="canonical"]'),
     ogTitle:content('meta[property="og:title"]'), ogDescription:content('meta[property="og:description"]'),
@@ -304,13 +345,24 @@ function extractSignals(html, url){
     jsonLd, jsonLdTypes:allObjects.map(o=>o['@type']).filter(Boolean).flat(),
     hasPersonSchema:allObjects.some(o=>['Person','ProfilePage'].includes(o['@type'])),
     hasOrgSchema:allObjects.some(o=>['Organization','LocalBusiness','NGO','Association','EducationalOrganization'].includes(o['@type'])),
-    sameAs:allObjects.flatMap(o=>Array.isArray(o.sameAs)?o.sameAs:(o.sameAs?[o.sameAs]:[])),
+    hasLocalBusiness,
+    sameAs: sameAsList,
     hasCustomDomain:(()=>{try{return !/^(www\.)?(linkedin|facebook|instagram|twitter|x\.com|linktree|bio\.link|linktr\.ee)/i.test(new URL(url).hostname);}catch{return true;}})(),
     socials:{ linkedin:links.find(h=>/linkedin\.com\/(in|company)\//i.test(h))||null, github:links.find(h=>/github\.com\//i.test(h))||null },
     h1s:[...doc.querySelectorAll('h1')].map(h=>h.textContent.trim()).filter(Boolean).slice(0,3),
     bodyExcerpt:(doc.body?.textContent||'').replace(/\s+/g,' ').trim().substring(0,400),
     platform:detectPlatform(html,jsonLd),
-    jsonLdQuality:analyzeJsonLdQuality(jsonLd, detectPlatform(html,jsonLd), html)
+    jsonLdQuality:analyzeJsonLdQuality(jsonLd, detectPlatform(html,jsonLd), html),
+    
+    // Nuove metriche semantiche/strutturali
+    emails,
+    emailDiscrepancies,
+    headingErrors,
+    h1Count,
+    totalImages,
+    missingAlt,
+    hasSemanticTags: /<(main|article|header|footer|nav)/i.test(html),
+    hasHeaderTag: /<header/i.test(html)
   };
 }
 function detectPlatform(html, jsonLd){
@@ -345,11 +397,10 @@ function analyzeJsonLdQuality(jsonLd, platform='', html=''){
   } else details.push('Nessuno schema Person');
   return { present:true, source, isPlugin, details, hasWikidata:JSON.stringify(allObjects).includes('wikidata.org'), hasWikipedia:JSON.stringify(allObjects).includes('wikipedia.org') };
 }
-
-// ================ FETCH AI FILES ================
+// ================ FETCH AI FILES (con supporto agents.md) ================
 async function fetchAiFiles(baseUrl){
   const base = new URL(baseUrl).origin;
-  const results = { llmsTxt:null, robotsTxt:null, sitemapXml:false, sitemapUrl:null, llmsTxtStatus:'absent', robotsTxtStatus:'absent', sitemapStatus:'absent' };
+  const results = { llmsTxt:null, robotsTxt:null, agentsMd:null, sitemapXml:false, sitemapUrl:null, llmsTxtStatus:'absent', robotsTxtStatus:'absent', agentsMdStatus:'absent', sitemapStatus:'absent' };
   const isHtmlOrTrash = (t)=> /^<(!doctype|html|!--|saved from)/i.test(t.substring(0,400).toLowerCase()) || /<html[\s>]/i.test(t.substring(0,200));
   const isXmlSitemap = (t)=> /<urlset|<sitemapindex/i.test(t.substring(0,600));
   async function tryFetch(pathOrUrl){
@@ -367,6 +418,10 @@ async function fetchAiFiles(baseUrl){
   if(rb.status==='found' && rb.content && !isHtmlOrTrash(rb.content)){ results.robotsTxt=rb.content.substring(0,1200); results.robotsTxtStatus='found'; }
   const ll = await tryFetch('/llms.txt');
   if(ll.status==='found' && ll.content && !isHtmlOrTrash(ll.content) && ll.content.trim().length>5){ results.llmsTxt=ll.content.substring(0,800); results.llmsTxtStatus='found'; }
+  
+  // Shopify specific agents.md
+  const ag = await tryFetch('/agents.md');
+  if(ag.status==='found' && ag.content && !isHtmlOrTrash(ag.content)){ results.agentsMd=ag.content.substring(0,800); results.agentsMdStatus='found'; }
   let sitemapPaths = ['/sitemap.xml','/sitemap_index.xml','/wp-sitemap.xml','/sitemap-index.xml','/page-sitemap.xml'];
   if(results.robotsTxt){
     const match = results.robotsTxt.match(/^Sitemap:\s*(.+)$/im);
@@ -379,28 +434,41 @@ async function fetchAiFiles(baseUrl){
   }
   return results;
 }
-
-// ================ ALGORITMO DI PUNTEGGIO ================
+// ================ ALGORITMO DI PUNTEGGIO AGGIORNATO ================
 function computeScores(signals, aiFiles, history, html) {
   if(!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
   const allObjects = signals.jsonLd.flatMap(j=>j['@graph']||[j]);
   const person = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
   const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
   
-  // 1. LEGGIBILITÀ AI
+  // 1. LEGGIBILITÀ AI (Penalizzata per errori HTML e intestazioni)
   let l = 0;
-  if(signals.jsonLd.length>0){ l+=40; l+=isManual?30:10; if(JSON.stringify(signals.jsonLd).includes('"@graph"')) l+=10; }
+  if(signals.jsonLd.length>0){ l+=30; l+=isManual?25:10; if(JSON.stringify(signals.jsonLd).includes('"@graph"')) l+=5; }
   if(signals.title) l+=5;
   if(signals.description && signals.description.length>50) l+=5;
   if(signals.canonical) l+=5;
   if(signals.ogTitle && signals.ogDescription) l+=5;
-  if(signals.h1s?.length) l+=5;
-  if(html && /<(main|article|header|footer|section)/i.test(html)) l+=5;
-  if(aiFiles?.llmsTxt) l+=15;
-  if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l+=10;
-  l = Math.min(100,l);
+  if(signals.hasSemanticTags) l+=5;
+  if(signals.hasHeaderTag) l+=5;
   
-  // 2. COERENZA IDENTITÀ (con gestione URL sicura)
+  // File accessibilità
+  if(aiFiles?.llmsTxt || aiFiles?.agentsMd) l+=15;
+  if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l+=5;
+  
+  // Penalità per Gerarchia dei Titoli e H1 mancanti
+  if (signals.headingErrors && signals.headingErrors.length > 0) {
+    l -= Math.min(15, signals.headingErrors.length * 2);
+  }
+  
+  // Penalità per immagini prive di ALT
+  if (signals.totalImages > 0) {
+    const missingRatio = signals.missingAlt / signals.totalImages;
+    if (missingRatio > 0.5) l -= 10;
+    else if (missingRatio > 0.2) l -= 5;
+  }
+  l = Math.max(0, Math.min(100, l));
+  
+  // 2. COERENZA IDENTITÀ (Danni per discrepanze email/domini non disambiguati)
   let c = 0;
   if(signals.title && person?.name){
     const titleClean = signals.title.toLowerCase().replace(/[^a-z0-9\s]/g,'');
@@ -444,18 +512,37 @@ function computeScores(signals, aiFiles, history, html) {
   }
   c += Math.min(15, affCount * 3);
   c += Math.min(5, history.bonus);
-  c = Math.min(100, c);
+  // Penalità grave per discrepanza dominio e-mail
+  if (signals.emailDiscrepancies && signals.emailDiscrepancies.length > 0) {
+    c -= 10;
+    // Se la discrepanza non è dichiarata come sameAs/collegata
+    if (signals.emailDiscrepancies.some(d => !d.declared)) {
+      c -= 10;
+    }
+  }
+  c = Math.max(0, Math.min(100, c));
   
   // 3. ACCESSIBILITÀ AI
   let p = 0;
-  if(aiFiles?.llmsTxt) p+=50;
+  if(aiFiles?.llmsTxt || aiFiles?.agentsMd) p+=50;
   if(aiFiles?.robotsTxt){ if(/gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p+=35; else p+=20; }
   if(aiFiles?.sitemapXml) p+=15;
   p = Math.min(100,p);
   
-  // 4. PROFILO
+  // 4. PROFILO / AUTORITÀ (Aggiornato per supportare Organizzazione/LocalBusiness)
   let pr = 0;
-  if(person){
+  const isOrg = signals.hasOrgSchema;
+  
+  if (isOrg) {
+    // Profilazione aziendale
+    pr += 20; // Presenza organizzazione
+    if (signals.hasLocalBusiness) pr += 20; // Presenza LocalBusiness
+    if (signals.emails && signals.emails.length > 0) pr += 15;
+    if (signals.socials?.linkedin) pr += 15;
+    if (signals.totalImages > 0 && signals.missingAlt === 0) pr += 10;
+    if (signals.jsonLdQuality?.present) pr += 20;
+  } else if(person){
+    // Profilazione personale
     if(person.name) pr+=15;
     if(person.description && person.description.length>50) pr+=15;
     if(person.image) pr+=10;
@@ -474,22 +561,30 @@ function computeScores(signals, aiFiles, history, html) {
     pr += Math.min(10, profLinks);
     if(person.identifier) pr+=5;
   }
-  pr = Math.min(100, Math.round(pr));
+  pr = Math.max(0, Math.min(100, Math.round(pr)));
   
-  // 5. RETE PROFESSIONALE (solo linkedin/github/knowsAbout)
+  // 5. RETE PROFESSIONALE (Socials, sameAs, partner)
   let g = 0;
-  if(person){
-    const sameAs = Array.isArray(person.sameAs)?person.sameAs:(person.sameAs?[person.sameAs]:[]);
+  const orgOrPerson = person || allObjects.find(o=>o['@type']==='Organization');
+  if(orgOrPerson){
+    const sameAs = Array.isArray(orgOrPerson.sameAs)?orgOrPerson.sameAs:(orgOrPerson.sameAs?[orgOrPerson.sameAs]:[]);
     let kg=0;
     for(const link of sameAs){
       if(/linkedin\.com/i.test(link)) kg+=15;
       else if(/github\.com/i.test(link)) kg+=10;
+      else if(/instagram\.com|facebook\.com/i.test(link)) kg+=5;
       else kg+=2;
     }
-    g += Math.min(40, kg);
-    const knows = person.knowsAbout;
-    if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(30, cnt*8); }
-    if(person.worksFor || person.affiliation) g+=20;
+    g += Math.min(50, kg);
+    if (isOrg) {
+      if (orgOrPerson.parentOrganization || orgOrPerson.subOrganization) g += 20;
+      if (orgOrPerson.memberOf) g += 15;
+      if (signals.emails && signals.emails.length > 0) g += 15;
+    } else {
+      const knows = orgOrPerson.knowsAbout;
+      if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(20, cnt*8); }
+      if(orgOrPerson.worksFor || orgOrPerson.affiliation) g+=20;
+    }
     g = Math.min(100, g);
   } else g=50;
   
@@ -499,7 +594,6 @@ function computeScores(signals, aiFiles, history, html) {
   return scores;
 }
 function normalizeUrl(raw){ raw=raw.trim().replace(/\s+/g,''); if(!raw) return null; if(/^@/.test(raw)) raw=raw.substring(1); if(!/^https?:\/\//i.test(raw)) raw='https://'+raw; try{ new URL(raw); return raw; }catch{return null;} }
-
 // ================ ANALISI PRINCIPALE ================
 async function runAnalysis(){
   let url = document.getElementById('urlInput').value.trim();
@@ -517,7 +611,7 @@ async function runAnalysis(){
   setStep(2);
   const signals = html ? extractSignals(html, url) : null;
   setStep(3);
-  let aiFiles = { llmsTxt:null, robotsTxt:null, sitemapXml:false };
+  let aiFiles = { llmsTxt:null, robotsTxt:null, agentsMd:null, sitemapXml:false };
   try{ aiFiles = await fetchAiFiles(url); }catch(e){ console.warn(e); }
   setStep(4);
   const scores = computeScores(signals, aiFiles, history, html);
@@ -525,6 +619,8 @@ async function runAnalysis(){
   const toneInstructionDetail = (LANG==='en')
     ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable. Never mention Wikipedia, news articles, external citations, or authority based on third-party publications. Focus only on the site structure, data quality, coherence, and AI accessibility.'
     : 'TONO: Consulente. Fornisci commenti dettagliati (3-5 frasi per dimensione). Spiega perché ogni punto di forza o lacuna è rilevante. I passi operativi devono essere concreti e attuabili. Non menzionare Wikipedia, articoli di giornale, citazioni esterne o autorità basata su pubblicazioni terze. Concentrati solo sulla struttura del sito, qualità dei dati, coerenza e accessibilità AI.';
+  
+  // Costruzione delle istruzioni di sistema per Gemini, passando i dettagli specifici del codice
   const sysPrompt = langInstruction + (LANG==='en'?
     `You are an AI Identity expert. Respond ONLY with valid JSON.
     LOCKED SCORES (DO NOT CHANGE): Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Grafo:${scores.grafo}, Coerenza:${scores.coerenza}, Politica:${scores.politica}, Profilo:${scores.profilo}.
@@ -535,7 +631,22 @@ async function runAnalysis(){
     Storia dominio: ${history.years.join(',')||'nessuno'}.
     Output: {"nome":"...","tipo":"Persona|Organizzazione","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Rete Professionale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n`)
     + `\n${toneInstructionDetail}\n`;
-  const userMsg = signals ? `Analizza: ${url}\nPiattaforma: ${signals.platform||'unknown'}\nDati estratti:\n${JSON.stringify({title:signals.title,description:signals.description,ogTitle:signals.ogTitle,ogDescription:signals.ogDescription,jsonLd:signals.jsonLd},null,2)}` : `Pagina non accessibile: ${url}`;
+  
+  // Iniezione nel messaggio utente dei dati strutturali riscontrati dal codice locale
+  const htmlAuditSummary = signals ? {
+    piattaforma: signals.platform,
+    hasLocalBusiness: signals.hasLocalBusiness,
+    hasOrgSchema: signals.hasOrgSchema,
+    headingErrors: signals.headingErrors,
+    missingAltImages: `${signals.missingAlt} su ${signals.totalImages}`,
+    emailDiscrepancies: signals.emailDiscrepancies,
+    hasAgentsMd: !!aiFiles?.agentsMd,
+    hasLlmsTxt: !!aiFiles?.llmsTxt
+  } : {};
+  const userMsg = signals ? `Analizza: ${url}
+Dati Audit HTML rilevati: ${JSON.stringify(htmlAuditSummary, null, 2)}
+Dati principali estratti:\n${JSON.stringify({title:signals.title,description:signals.description,ogTitle:signals.ogTitle,ogDescription:signals.ogDescription,jsonLd:signals.jsonLd},null,2)}` : `Pagina non accessibile: ${url}`;
+  
   const geminiBody = JSON.stringify({ system_instruction:{parts:[{text:sysPrompt}]}, contents:[{role:'user',parts:[{text:userMsg}]}], generationConfig:{maxOutputTokens:2500,temperature:0.3} });
   try{
     const res = await fetch('/api/gemini-analyze', { method:'POST', headers:{'Content-Type':'application/json'}, body:geminiBody });
@@ -556,7 +667,6 @@ async function runAnalysis(){
     showErr('Errore: '+err.message);
   }
 }
-
 function sc(s){ return s>=65?'#2DB885':s>=40?'#D4870E':'#D84F35'; }
 function scoreToRating(score){
   if(score>=80) return { label:(LANG==='en'?'Excellent':'Eccellente'), color:'#2DB885' };
@@ -601,14 +711,18 @@ function renderResults(d, signals, aiFiles, scores) {
   }
   if (signals || aiFiles) {
     const jq = signals?.jsonLdQuality;
+    const hasDiscrepancy = signals?.emailDiscrepancies?.length > 0;
+    const hasUnresolvedDiscrepancy = signals?.emailDiscrepancies?.some(d => !d.declared);
     const tags = [
-      {l: signals?.jsonLd?.length>0 ? (jq?.isPlugin ? `⚠️ Plugin (${(jq.source||'').split(' ')[0]})` : '✅ Schema manuale') : 'JSON-LD assente', v: signals?.jsonLd?.length>0, warn: jq?.isPlugin},
+      {l: signals?.jsonLd?.length>0 ? (jq?.isPlugin ? `Plugin (${(jq.source||'').split(' ')[0]})` : 'Schema manuale') : 'JSON-LD assente', v: signals?.jsonLd?.length>0, warn: jq?.isPlugin},
       {l:'sameAs', v:(signals?.sameAs?.length||0)>0},
       {l:'Wikidata', v:jq?.hasWikidata||false},
       {l:'Wikipedia', v:jq?.hasWikipedia||false},
       {l:'llms.txt', v:!!aiFiles?.llmsTxt},
+      {l:'agents.md', v:!!aiFiles?.agentsMd},
       {l:'robots.txt', v:!!aiFiles?.robotsTxt},
-      {l:aiFiles?.sitemapUrl?'sitemap':'sitemap', v:!!aiFiles?.sitemapXml}
+      {l:'sitemap', v:!!aiFiles?.sitemapXml},
+      {l: hasDiscrepancy ? (hasUnresolvedDiscrepancy ? '⚠ E-mail Disallineata' : '✓ E-mail Alternativa') : 'E-mail Allineata', v: !hasDiscrepancy, warn: hasUnresolvedDiscrepancy}
     ];
     document.getElementById('dataBar').innerHTML = `<div class="data-bar">${tags.map(t=>`<span class="dtag ${t.warn?'warn':t.v?'yes':'no'}">${t.warn?'⚠':t.v?'✓':'✗'} ${t.l}</span>`).join('')}</div>`;
   }
