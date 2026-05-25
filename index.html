@@ -45,7 +45,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .score-hero{background:var(--surface);border:1px solid var(--border);padding:1.75rem 2rem;display:flex;align-items:center;gap:2rem;margin-bottom:1rem}
 .ring-wrap{position:relative;flex-shrink:0;width:100px;height:100px}
 .ring-wrap svg{transform:rotate(-90deg);display:block}
-.ring-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.ring-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;width:90px}
 .ring-num{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;display:block;line-height:1}
 .ring-sub{font-size:.55rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;display:block;margin-top:2px}
 .hero-info .tipo{display:inline-block;font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(201,168,76,.4);padding:.2rem .55rem;margin-bottom:.6rem}
@@ -254,9 +254,9 @@ async function checkDomainHistory(url){
   const domain = new URL(url).hostname;
   const years=[1,2,5];
   let historyBonus=0, found=[];
-  const now=new Date();
+  const currentYear = 2026; // Fissiamo l'anno corrente per determinismo matematico assoluto
   const checks=years.map(async(y)=>{
-    const ts = new Date(now.getFullYear()-y, now.getMonth(), now.getDate()).toISOString().slice(0,10).replace(/-/g,'');
+    const ts = `${currentYear - y}0101`; // Interroghiamo sempre il 1° gennaio di quell'anno storico
     try{
       const proxyUrl = `/api/fetch-page?url=${encodeURIComponent(`https://archive.org/wayback/available?url=${domain}&timestamp=${ts}`)}`;
       const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
@@ -726,11 +726,11 @@ Dati principali estratti:\n${JSON.stringify({title:signals.title,description:sig
 }
 // Funzione di mappatura colore dinamica basata sul nuovo range di rating
 function sc(s){ return s>=85?'#2DB885':s>=70?'#A9C94C':s>=50?'#D4870E':'#D84F35'; }
-// Scala di classificazione professionale aggiornata
+// Scala di classificazione professionale aggiornata con etichette corte e sicure per la larghezza
 function scoreToRating(score){
   if(score>=85) return { label:(LANG==='en'?'Excellent':'Eccellente'), color:'#2DB885' };
   if(score>=70) return { label:(LANG==='en'?'Good':'Buono'), color:'#A9C94C' };
-  if(score>=50) return { label:(LANG==='en'?'Needs Improvement':'Insufficiente'), color:'#D4870E' };
+  if(score>=50) return { label:(LANG==='en'?'Partial':'Parziale'), color:'#D4870E' };
   return { label:(LANG==='en'?'Critical':'Critico'), color:'#D84F35' };
 }
 function renderResults(d, signals, aiFiles, scores) {
@@ -744,7 +744,7 @@ function renderResults(d, signals, aiFiles, scores) {
   };
   const standardDims = {
     leggibilita: { id:'leggibilita', nome:LANG==='en'?'AI Readability':'Leggibilità AI', score:scores.leggibilita, sintesi:'', gap:'' },
-    grafo: { id:'grafo', nome:LANG==='en'?'Professional Network':'Rete Professionale', score:scores.grafo, score:scores.grafo, sintesi:'', gap:'' },
+    grafo: { id:'grafo', nome:LANG==='en'?'Professional Network':'Rete Professionale', score:scores.grafo, sintesi:'', gap:'' },
     coerenza: { id:'coerenza', nome:LANG==='en'?'Identity Consistency':'Coerenza Identità', score:scores.coerenza, sintesi:'', gap:'' },
     politica: { id:'politica', nome:LANG==='en'?'AI Accessibility':'Accessibilità AI', score:scores.politica, sintesi:'', gap:'' },
     profilo: { id:'profilo', nome:LANG==='en'?'Profile':'Profilo', score:scores.profilo, sintesi:'', gap:'' }
@@ -764,7 +764,7 @@ function renderResults(d, signals, aiFiles, scores) {
   document.getElementById('inputSection').style.display = 'none';
   const R = 40, circ = (2 * Math.PI * R).toFixed(2), off = (circ - (d.score/100)*circ).toFixed(2), color = sc(d.score);
   const ratingTotal = scoreToRating(d.score);
-  document.getElementById('scoreHeroWrap').innerHTML = `<div class="score-hero"><div class="ring-wrap"><svg width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" fill="none" stroke="#1C1C30" stroke-width="6"/><circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="6" stroke-dasharray="${circ}" stroke-dashoffset="${circ}" stroke-linecap="round" id="scoreRing"/></svg><div class="ring-center"><span class="ring-num" id="scoreNum" style="color:${color}">0</span><span class="ring-sub">/100</span><div style="font-size:.45rem;color:${ratingTotal.color};margin-top:4px;">${ratingTotal.label}</div></div></div><div class="hero-info"><span class="tipo">${d.tipo || (LANG==='en'?'Entity':'Entità')}</span><h2>${d.nome || ''}</h2><p class="sintesi">${d.sintesi || ''}</p></div></div>`;
+  document.getElementById('scoreHeroWrap').innerHTML = `<div class="score-hero"><div class="ring-wrap"><svg width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" fill="none" stroke="#1C1C30" stroke-width="6"/><circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="6" stroke-dasharray="${circ}" stroke-dashoffset="${circ}" stroke-linecap="round" id="scoreRing"/></svg><div class="ring-center"><span class="ring-num" id="scoreNum" style="color:${color}">0</span><span class="ring-sub">/100</span><div style="font-size:.38rem;color:${ratingTotal.color};margin-top:4px;white-space:nowrap;width:100%;text-align:center;overflow:visible;">${ratingTotal.label}</div></div></div><div class="hero-info"><span class="tipo">${d.tipo || (LANG==='en'?'Entity':'Entità')}</span><h2>${d.nome || ''}</h2><p class="sintesi">${d.sintesi || ''}</p></div></div>`;
   if (d.percezione_ai && !document.getElementById('percezioneBox')) {
     document.getElementById('scoreHeroWrap').insertAdjacentHTML('afterend', `<div id="percezioneBox" style="background:var(--surface);border:1px solid var(--border);padding:1.25rem 1.5rem;margin-bottom:1rem"><div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem">${LANG==='en'?'How an AI perceives me':'Come mi percepisce un sistema AI'}</div><p style="font-size:.78rem;color:var(--muted);line-height:1.8;margin:0;font-style:italic">"${d.percezione_ai}"</p></div>`);
   }
