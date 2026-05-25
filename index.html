@@ -79,7 +79,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .step-a{font-size:.7rem;color:var(--text);line-height:1.55}
 .btn-reset{display:block;width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;padding:.9rem;cursor:pointer;transition:all .2s}
 .btn-reset:hover{border-color:var(--gold);color:var(--gold)}
-.btn-reset:hover{border-color:var(--gold);color:var(--gold)}
 .footer{text-align:center;padding:2rem 0 0;font-size:.6rem;color:var(--dim);letter-spacing:.08em;border-top:1px solid var(--border)}
 .result-actions{display:flex;align-items:center;gap:1rem;margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
 .btn-pdf{background:var(--gold);color:var(--bg);border:none;font-family:'DM Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.4rem;cursor:pointer;transition:background .2s;white-space:nowrap}
@@ -118,7 +117,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   a{color:#C9A84C!important;text-decoration:none}
 }
 .lang-bar{display:flex;justify-content:flex-end;margin-bottom:1rem;gap:.25rem}
-.lang-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:#.6rem;letter-spacing:.18em;padding:.3rem .65rem;cursor:pointer;transition:all .2s}
+.lang-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.18em;padding:.3rem .65rem;cursor:pointer;transition:all .2s}
 .lang-btn:hover{border-color:var(--gold);color:var(--gold)}
 .lang-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.08)}
 .tone-row{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}
@@ -434,115 +433,162 @@ async function fetchAiFiles(baseUrl){
   }
   return results;
 }
-// ================ ALGORITMO DI PUNTEGGIO AGGIORNATO ================
+// ================ ALGORITMO DI PUNTEGGIO AGGIORNATO E BILANCIATO ================
 function computeScores(signals, aiFiles, history, html) {
   if(!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
   const allObjects = signals.jsonLd.flatMap(j=>j['@graph']||[j]);
   const person = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
-  const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
+  const org = allObjects.find(o=>['Organization', 'LocalBusiness'].includes(o['@type']) || (Array.isArray(o['@type']) && o['@type'].some(t => ['Organization', 'LocalBusiness'].includes(t))));
+  const isOrg = signals.hasOrgSchema;
   
-  // 1. LEGGIBILITÀ AI (Penalizzata per errori HTML e intestazioni)
+  // 1. LEGGIBILITÀ AI (Readability) - Focus solo su semantica strutturale, escludendo robots/llms.txt
   let l = 0;
-  if(signals.jsonLd.length>0){ l+=30; l+=isManual?25:10; if(JSON.stringify(signals.jsonLd).includes('"@graph"')) l+=5; }
-  if(signals.title) l+=5;
-  if(signals.description && signals.description.length>50) l+=5;
-  if(signals.canonical) l+=5;
-  if(signals.ogTitle && signals.ogDescription) l+=5;
-  if(signals.hasSemanticTags) l+=5;
-  if(signals.hasHeaderTag) l+=5;
   
-  // File accessibilità
-  if(aiFiles?.llmsTxt || aiFiles?.agentsMd) l+=15;
-  if(aiFiles?.robotsTxt && /Allow|Disallow/i.test(aiFiles.robotsTxt)) l+=5;
-  
-  // Penalità per Gerarchia dei Titoli e H1 mancanti
-  if (signals.headingErrors && signals.headingErrors.length > 0) {
-    l -= Math.min(15, signals.headingErrors.length * 2);
+  // JSON-LD presenza
+  if (signals.jsonLd.length > 0) {
+    const isManual = signals.jsonLdQuality && !signals.jsonLdQuality.isPlugin;
+    l += isManual ? 45 : 30;
+    if (JSON.stringify(signals.jsonLd).includes('"@graph"')) l += 5;
   }
   
-  // Penalità per immagini prive di ALT
+  // Metadati di base
+  if (signals.title) l += 3;
+  if (signals.description && signals.description.length > 50) l += 3;
+  if (signals.canonical) l += 2;
+  if (signals.ogTitle && signals.ogDescription) l += 5;
+  if (signals.ogImage) l += 2;
+  
+  // Tag semantici strutturali HTML5
+  if (signals.hasSemanticTags) l += 5;
+  if (signals.hasHeaderTag) l += 5;
+  
+  // Titoli intestazione (gerarchia titoli H1-H6)
+  let headingPts = 15;
+  if (signals.headingErrors && signals.headingErrors.length > 0) {
+    headingPts -= Math.min(15, signals.headingErrors.length * 3);
+  }
+  l += Math.max(0, headingPts);
+  
+  // Immagini alt text
+  let imgPts = 10;
   if (signals.totalImages > 0) {
     const missingRatio = signals.missingAlt / signals.totalImages;
-    if (missingRatio > 0.5) l -= 10;
-    else if (missingRatio > 0.2) l -= 5;
+    imgPts -= Math.min(10, Math.round(missingRatio * 10));
   }
+  l += Math.max(0, imgPts);
   l = Math.max(0, Math.min(100, l));
   
-  // 2. COERENZA IDENTITÀ (Danni per discrepanze email/domini non disambiguati)
-  let c = 0;
-  if(signals.title && person?.name){
-    const titleClean = signals.title.toLowerCase().replace(/[^a-z0-9\s]/g,'');
-    const nameClean = person.name.toLowerCase().replace(/[^a-z0-9\s]/g,'');
-    if(titleClean === nameClean) c+=25;
-    else if(titleClean.includes(nameClean)) c+=22;
-    else if(nameClean.includes(titleClean)) c+=18;
-    else c+=10;
-  } else if(signals.title) c+=5;
+  // 2. COERENZA IDENTITÀ (c) - Calcolo sdoppiato Persona / Organizzazione
+  let c = 100;
   
-  if(signals.description && person?.description){
-    const descWords = signals.description.toLowerCase().split(/\s+/).filter(w=>w.length>3);
-    const persWords = person.description.toLowerCase().split(/\s+/).filter(w=>w.length>3);
-    const common = descWords.filter(w=>persWords.includes(w)).length;
-    const maxPossible = Math.min(descWords.length, persWords.length);
-    let ratio = maxPossible > 0 ? common / maxPossible : 0;
-    c += Math.min(20, Math.round(ratio * 20));
-  } else if(signals.description) c+=5;
-  
-  let imageMatch = false;
-  if(signals.ogImage && person?.image) {
-    try { imageMatch = (new URL(signals.ogImage).origin === new URL(person.image).origin); } catch(e) {}
-  }
-  if(imageMatch) c+=10;
-  
-  if(signals.canonical && signals.url) {
-    try {
-      const canon = new URL(signals.canonical);
-      const page = new URL(signals.url);
-      if(canon.href === page.href || canon.pathname === page.pathname) c+=10;
-    } catch(e) {}
-  }
-  
-  if(person && person['@id']) c+=10;
-  if(person && person.sameAs && (Array.isArray(person.sameAs)?person.sameAs.length:1)>0) c+=5;
-  
-  let affCount = 0;
-  if(person){
-    if(person.affiliation) affCount += Array.isArray(person.affiliation)?person.affiliation.length:1;
-    if(person.worksFor) affCount += Array.isArray(person.worksFor)?person.worksFor.length:1;
-  }
-  c += Math.min(15, affCount * 3);
-  c += Math.min(5, history.bonus);
-  // Penalità grave per discrepanza dominio e-mail
-  if (signals.emailDiscrepancies && signals.emailDiscrepancies.length > 0) {
-    c -= 10;
-    // Se la discrepanza non è dichiarata come sameAs/collegata
-    if (signals.emailDiscrepancies.some(d => !d.declared)) {
+  if (isOrg && org) {
+    // Coerenza Aziendale (Organization)
+    // 1. Corrispondenza Brand / Titolo Sito
+    if (signals.title && org.name) {
+      const titleClean = signals.title.toLowerCase().replace(/[^a-z0-9\s]/g,'');
+      const nameClean = org.name.toLowerCase().replace(/[^a-z0-9\s]/g,'');
+      if (!titleClean.includes(nameClean) && !nameClean.includes(titleClean)) {
+        c -= 15;
+      }
+    }
+    // 2. Allineamento E-mail e domini collegati
+    if (signals.emailDiscrepancies && signals.emailDiscrepancies.length > 0) {
+      c -= 15;
+      if (signals.emailDiscrepancies.some(d => !d.declared)) {
+        c -= 15; // Penalità severa se l'email non è disambiguata/associata
+      }
+    }
+    // 3. Social sameAs
+    const sameAs = Array.isArray(org.sameAs)?org.sameAs:(org.sameAs?[org.sameAs]:[]);
+    if (sameAs.length === 0) {
+      c -= 15;
+    }
+    // 4. LocalBusiness schema
+    if (!signals.hasLocalBusiness) {
+      c -= 15;
+    }
+    // 5. Canonical
+    if (signals.canonical && signals.url) {
+      try {
+        const canon = new URL(signals.canonical);
+        const page = new URL(signals.url);
+        if (canon.href !== page.href && canon.pathname !== page.pathname) c -= 10;
+      } catch(e) {}
+    }
+  } else {
+    // Coerenza Personale (Person - Default)
+    c = 0;
+    if(signals.title && person?.name){
+      const titleClean = signals.title.toLowerCase().replace(/[^a-z0-9\s]/g,'');
+      const nameClean = person.name.toLowerCase().replace(/[^a-z0-9\s]/g,'');
+      if(titleClean === nameClean) c+=25;
+      else if(titleClean.includes(nameClean)) c+=22;
+      else if(nameClean.includes(titleClean)) c+=18;
+      else c+=10;
+    } else if(signals.title) c+=5;
+    
+    if(signals.description && person?.description){
+      const descWords = signals.description.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+      const persWords = person.description.toLowerCase().split(/\s+/).filter(w=>w.length>3);
+      const common = descWords.filter(w=>persWords.includes(w)).length;
+      const maxPossible = Math.min(descWords.length, persWords.length);
+      let ratio = maxPossible > 0 ? common / maxPossible : 0;
+      c += Math.min(20, Math.round(ratio * 20));
+    } else if(signals.description) c+=5;
+    
+    let imageMatch = false;
+    if(signals.ogImage && person?.image) {
+      try { imageMatch = (new URL(signals.ogImage).origin === new URL(person.image).origin); } catch(e) {}
+    }
+    if(imageMatch) c+=10;
+    
+    if(signals.canonical && signals.url) {
+      try {
+        const canon = new URL(signals.canonical);
+        const page = new URL(signals.url);
+        if(canon.href === page.href || canon.pathname === page.pathname) c+=10;
+      } catch(e) {}
+    }
+    
+    if(person && person['@id']) c+=10;
+    if(person && person.sameAs && (Array.isArray(person.sameAs)?person.sameAs.length:1)>0) c+=5;
+    
+    let affCount = 0;
+    if(person){
+      if(person.affiliation) affCount += Array.isArray(person.affiliation)?person.affiliation.length:1;
+      if(person.worksFor) affCount += Array.isArray(person.worksFor)?person.worksFor.length:1;
+    }
+    c += Math.min(15, affCount * 3);
+    
+    // Penalità e-mail secondaria per Person
+    if (signals.emailDiscrepancies && signals.emailDiscrepancies.length > 0) {
       c -= 10;
+      if (signals.emailDiscrepancies.some(d => !d.declared)) c -= 10;
     }
   }
+  
+  c += Math.min(5, history.bonus);
   c = Math.max(0, Math.min(100, c));
   
-  // 3. ACCESSIBILITÀ AI
+  // 3. ACCESSIBILITÀ AI (p)
   let p = 0;
   if(aiFiles?.llmsTxt || aiFiles?.agentsMd) p+=50;
   if(aiFiles?.robotsTxt){ if(/gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p+=35; else p+=20; }
   if(aiFiles?.sitemapXml) p+=15;
   p = Math.min(100,p);
   
-  // 4. PROFILO / AUTORITÀ (Aggiornato per supportare Organizzazione/LocalBusiness)
+  // 4. PROFILO (pr)
   let pr = 0;
-  const isOrg = signals.hasOrgSchema;
-  
   if (isOrg) {
-    // Profilazione aziendale
-    pr += 20; // Presenza organizzazione
-    if (signals.hasLocalBusiness) pr += 20; // Presenza LocalBusiness
+    // Profilo Aziendale
+    pr += 20; // Presenza Org
+    if (signals.hasLocalBusiness) pr += 20; // Showroom/LocalBusiness fisico
     if (signals.emails && signals.emails.length > 0) pr += 15;
     if (signals.socials?.linkedin) pr += 15;
     if (signals.totalImages > 0 && signals.missingAlt === 0) pr += 10;
     if (signals.jsonLdQuality?.present) pr += 20;
   } else if(person){
-    // Profilazione personale
+    // Profilo Personale
     if(person.name) pr+=15;
     if(person.description && person.description.length>50) pr+=15;
     if(person.image) pr+=10;
@@ -563,34 +609,46 @@ function computeScores(signals, aiFiles, history, html) {
   }
   pr = Math.max(0, Math.min(100, Math.round(pr)));
   
-  // 5. RETE PROFESSIONALE (Socials, sameAs, partner)
+  // 5. RETE PROFESSIONALE (g)
   let g = 0;
-  const orgOrPerson = person || allObjects.find(o=>o['@type']==='Organization');
-  if(orgOrPerson){
-    const sameAs = Array.isArray(orgOrPerson.sameAs)?orgOrPerson.sameAs:(orgOrPerson.sameAs?[orgOrPerson.sameAs]:[]);
-    let kg=0;
-    for(const link of sameAs){
-      if(/linkedin\.com/i.test(link)) kg+=15;
-      else if(/github\.com/i.test(link)) kg+=10;
-      else if(/instagram\.com|facebook\.com/i.test(link)) kg+=5;
-      else kg+=2;
-    }
-    g += Math.min(50, kg);
-    if (isOrg) {
-      if (orgOrPerson.parentOrganization || orgOrPerson.subOrganization) g += 20;
-      if (orgOrPerson.memberOf) g += 15;
-      if (signals.emails && signals.emails.length > 0) g += 15;
-    } else {
-      const knows = orgOrPerson.knowsAbout;
-      if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(20, cnt*8); }
-      if(orgOrPerson.worksFor || orgOrPerson.affiliation) g+=20;
+  const hasGraph = signals.hasOrgSchema || signals.hasPersonSchema;
+  if (hasGraph) {
+    const orgOrPerson = person || allObjects.find(o=>o['@type']==='Organization');
+    if(orgOrPerson){
+      const sameAs = Array.isArray(orgOrPerson.sameAs)?orgOrPerson.sameAs:(orgOrPerson.sameAs?[orgOrPerson.sameAs]:[]);
+      let kg=0;
+      for(const link of sameAs){
+        if(/linkedin\.com/i.test(link)) kg+=15;
+        else if(/github\.com/i.test(link)) kg+=10;
+        else if(/instagram\.com|facebook\.com/i.test(link)) kg+=5;
+        else kg+=2;
+      }
+      g += Math.min(50, kg);
+      if (isOrg) {
+        if (orgOrPerson.parentOrganization || orgOrPerson.subOrganization) g += 20;
+        if (orgOrPerson.memberOf) g += 15;
+        if (signals.emails && signals.emails.length > 0) g += 15;
+      } else {
+        const knows = orgOrPerson.knowsAbout;
+        if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(20, cnt*8); }
+        if(orgOrPerson.worksFor || orgOrPerson.affiliation) g+=20;
+      }
     }
     g = Math.min(100, g);
-  } else g=50;
+  } else {
+    g = 15; // default basso (e non 50) se non esiste alcun grafo semantico
+  }
   
+  // Calcolo del punteggio Overall con Pesi Dinamici
   const scores = { leggibilita:l, grafo:g, coerenza:c, politica:p, profilo:pr };
-  scores.overall = Math.round(l*0.30 + g*0.25 + c*0.20 + p*0.15 + pr*0.10);
-  console.log('FINAL SCORES:', scores);
+  if (isOrg) {
+    // Pesi per Azienda (LocalBusiness/Organization)
+    scores.overall = Math.round(l*0.30 + c*0.25 + pr*0.20 + p*0.15 + g*0.10);
+  } else {
+    // Pesi per Persona (Person)
+    scores.overall = Math.round(l*0.30 + g*0.25 + c*0.20 + p*0.15 + pr*0.10);
+  }
+  
   return scores;
 }
 function normalizeUrl(raw){ raw=raw.trim().replace(/\s+/g,''); if(!raw) return null; if(/^@/.test(raw)) raw=raw.substring(1); if(!/^https?:\/\//i.test(raw)) raw='https://'+raw; try{ new URL(raw); return raw; }catch{return null;} }
@@ -620,7 +678,6 @@ async function runAnalysis(){
     ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable. Never mention Wikipedia, news articles, external citations, or authority based on third-party publications. Focus only on the site structure, data quality, coherence, and AI accessibility.'
     : 'TONO: Consulente. Fornisci commenti dettagliati (3-5 frasi per dimensione). Spiega perché ogni punto di forza o lacuna è rilevante. I passi operativi devono essere concreti e attuabili. Non menzionare Wikipedia, articoli di giornale, citazioni esterne o autorità basata su pubblicazioni terze. Concentrati solo sulla struttura del sito, qualità dei dati, coerenza e accessibilità AI.';
   
-  // Costruzione delle istruzioni di sistema per Gemini, passando i dettagli specifici del codice
   const sysPrompt = langInstruction + (LANG==='en'?
     `You are an AI Identity expert. Respond ONLY with valid JSON.
     LOCKED SCORES (DO NOT CHANGE): Overall:${scores.overall}, Leggibilita:${scores.leggibilita}, Grafo:${scores.grafo}, Coerenza:${scores.coerenza}, Politica:${scores.politica}, Profilo:${scores.profilo}.
@@ -632,7 +689,7 @@ async function runAnalysis(){
     Output: {"nome":"...","tipo":"Persona|Organizzazione","percezione_ai":"...","dimensioni":[{"id":"leggibilita","nome":"Leggibilità AI","sintesi":"...","gap":"..."},{"id":"grafo","nome":"Rete Professionale","sintesi":"...","gap":"..."},{"id":"coerenza","nome":"Coerenza Identità","sintesi":"...","gap":"..."},{"id":"politica","nome":"Accessibilità AI","sintesi":"...","gap":"..."},{"id":"profilo","nome":"Profilo","sintesi":"...","gap":"..."}],"forze":[],"lacune":[],"passi":[{"p":"alta|media|bassa","a":"..."}],"sintesi":"..."}\n`)
     + `\n${toneInstructionDetail}\n`;
   
-  // Iniezione nel messaggio utente dei dati strutturali riscontrati dal codice locale
+  // Audit sintattico locale da passare a Gemini per la stesura del commento
   const htmlAuditSummary = signals ? {
     piattaforma: signals.platform,
     hasLocalBusiness: signals.hasLocalBusiness,
@@ -667,12 +724,14 @@ Dati principali estratti:\n${JSON.stringify({title:signals.title,description:sig
     showErr('Errore: '+err.message);
   }
 }
-function sc(s){ return s>=65?'#2DB885':s>=40?'#D4870E':'#D84F35'; }
+// Funzione di mappatura colore dinamica basata sul nuovo range di rating
+function sc(s){ return s>=85?'#2DB885':s>=70?'#A9C94C':s>=50?'#D4870E':'#D84F35'; }
+// Scala di classificazione professionale aggiornata
 function scoreToRating(score){
-  if(score>=80) return { label:(LANG==='en'?'Excellent':'Eccellente'), color:'#2DB885' };
-  if(score>=60) return { label:(LANG==='en'?'Good':'Buono'), color:'#A9C94C' };
-  if(score>=40) return { label:(LANG==='en'?'Sufficient':'Sufficiente'), color:'#D4870E' };
-  return { label:(LANG==='en'?'Poor':'Scarso'), color:'#D84F35' };
+  if(score>=85) return { label:(LANG==='en'?'Excellent':'Eccellente'), color:'#2DB885' };
+  if(score>=70) return { label:(LANG==='en'?'Good':'Buono'), color:'#A9C94C' };
+  if(score>=50) return { label:(LANG==='en'?'Needs Improvement':'Insufficiente'), color:'#D4870E' };
+  return { label:(LANG==='en'?'Critical':'Critico'), color:'#D84F35' };
 }
 function renderResults(d, signals, aiFiles, scores) {
   d.score = scores.overall;
@@ -685,7 +744,7 @@ function renderResults(d, signals, aiFiles, scores) {
   };
   const standardDims = {
     leggibilita: { id:'leggibilita', nome:LANG==='en'?'AI Readability':'Leggibilità AI', score:scores.leggibilita, sintesi:'', gap:'' },
-    grafo: { id:'grafo', nome:LANG==='en'?'Professional Network':'Rete Professionale', score:scores.grafo, sintesi:'', gap:'' },
+    grafo: { id:'grafo', nome:LANG==='en'?'Professional Network':'Rete Professionale', score:scores.grafo, score:scores.grafo, sintesi:'', gap:'' },
     coerenza: { id:'coerenza', nome:LANG==='en'?'Identity Consistency':'Coerenza Identità', score:scores.coerenza, sintesi:'', gap:'' },
     politica: { id:'politica', nome:LANG==='en'?'AI Accessibility':'Accessibilità AI', score:scores.politica, sintesi:'', gap:'' },
     profilo: { id:'profilo', nome:LANG==='en'?'Profile':'Profilo', score:scores.profilo, sintesi:'', gap:'' }
@@ -722,7 +781,7 @@ function renderResults(d, signals, aiFiles, scores) {
       {l:'agents.md', v:!!aiFiles?.agentsMd},
       {l:'robots.txt', v:!!aiFiles?.robotsTxt},
       {l:'sitemap', v:!!aiFiles?.sitemapXml},
-      {l: hasDiscrepancy ? (hasUnresolvedDiscrepancy ? '⚠ E-mail Disallineata' : '✓ E-mail Alternativa') : 'E-mail Allineata', v: !hasDiscrepancy, warn: hasUnresolvedDiscrepancy}
+      {l: hasDiscrepancy ? (hasUnresolvedDiscrepancy ? 'E-mail Disallineata' : 'E-mail Alternativa') : 'E-mail Allineata', v: !hasDiscrepancy, warn: hasUnresolvedDiscrepancy}
     ];
     document.getElementById('dataBar').innerHTML = `<div class="data-bar">${tags.map(t=>`<span class="dtag ${t.warn?'warn':t.v?'yes':'no'}">${t.warn?'⚠':t.v?'✓':'✗'} ${t.l}</span>`).join('')}</div>`;
   }
