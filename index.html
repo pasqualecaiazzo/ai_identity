@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -774,8 +775,9 @@ function computeScores(signals, aiFiles, history, html, fetchBlocked = false) {
     } else if(signals.description) c+=5;
     
     let imageMatch = false;
-    if(signals.ogImage && person?.image) {
-      try { imageMatch = (new URL(signals.ogImage).origin === new URL(person.image).origin); } catch(e) {}
+    const personImageSrc = person?.image?.url || (typeof person?.image === 'string' ? person.image : null);
+    if(signals.ogImage && personImageSrc) {
+      try { imageMatch = (new URL(signals.ogImage).origin === new URL(personImageSrc).origin); } catch(e) {}
     }
     if(imageMatch) c+=10;
     
@@ -794,6 +796,7 @@ function computeScores(signals, aiFiles, history, html, fetchBlocked = false) {
     if(person){
       if(person.affiliation) affCount += Array.isArray(person.affiliation)?person.affiliation.length:1;
       if(person.worksFor) affCount += Array.isArray(person.worksFor)?person.worksFor.length:1;
+      if(person.memberOf) affCount += Array.isArray(person.memberOf)?person.memberOf.length:1;
     }
     c += Math.min(15, affCount * 3);
     
