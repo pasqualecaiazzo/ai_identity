@@ -1,3 +1,9 @@
+
+ai_identity_updated.html
+/Users/pasqualecaiazzo/.gemini/antigravity/scratch/ai_readability_analyzer
+
+
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -166,6 +172,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <span class="tone-desc" id="toneDesc"></span>
     </div>
     <div class="error-box" id="errorBox"></div>
+    <div id="fallbackHtmlContainer" style="display:none; margin-top: 1.5rem; background: var(--surface2); border: 1px solid var(--border); padding: 1.25rem;">
+      <label class="field-label" style="color:var(--gold); margin-bottom:.5rem; display:block;" id="i18n-fallbackLabel"></label>
+      <p style="font-size: .65rem; color: var(--muted); margin-bottom: .75rem; line-height: 1.5;" id="i18n-fallbackDesc"></p>
+      <textarea id="fallbackHtmlInput" style="width: 100%; height: 120px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: monospace; font-size: .7rem; padding: .6rem; outline: none; margin-bottom: .75rem; resize: vertical;" placeholder="<!DOCTYPE html>..."></textarea>
+      <button class="btn-analyze" style="width: 100%; background: var(--gold); font-size: .65rem;" id="i18n-btnAnalyzePasted" onclick="runAnalysisWithPastedHtml()"></button>
+    </div>
   </div>
   <div class="loading" id="loadingSection">
     <div class="spinner" id="loadingSpinner"></div>
@@ -210,7 +222,11 @@ const I18N = {
     errNoJson: 'JSON non trovato nella risposta — vedi Console per dettagli.',
     toneLabel: 'Livello di dettaglio',
     toneLevels: ['Imprenditore — solo impatto business', 'Manager — risultati e opportunità', 'Consulente — bilanciato, spiegazioni chiare', 'Sviluppatore — termini tecnici', 'Esperto AI — massimo dettaglio'],
-    promptLang: ''
+    promptLang: '',
+    fallbackLabel: 'Incolla il codice HTML (Sorgente Pagina)',
+    fallbackDesc: 'Il sito sembra protetto da sistemi anti-bot (Cloudflare/Errore 422). Per procedere: apri il sito nel tuo browser, premi CTRL+U (o tasto destro -> Visualizza sorgente pagina), copia tutto il codice e incollalo qui sotto.',
+    btnAnalyzePasted: 'Analizza HTML Incollato →',
+    errFetch: 'Impossibile recuperare il sito direttamente (Errore 422 - blocco anti-bot o Cloudflare). Puoi incollare il codice HTML manualmente qui sotto per procedere.'
   },
   en: {
     headline: 'Who are you<br><em>in the AI era?</em>',
@@ -229,17 +245,23 @@ const I18N = {
     errNoJson: 'JSON not found in response — check the Console for details.',
     toneLabel: 'Detail level',
     toneLevels: ['Executive — business impact only', 'Manager — results and opportunities', 'Consultant — balanced, clear explanations', 'Developer — technical terms', 'AI Expert — maximum detail'],
-    promptLang: '\n\nIMPORTANT: Respond entirely in ENGLISH. Every text field must be in English.'
+    promptLang: '\n\nIMPORTANT: Respond entirely in ENGLISH. Every text field must be in English.',
+    fallbackLabel: 'Paste HTML Source Code',
+    fallbackDesc: 'The site seems protected by anti-bot systems (Cloudflare/Error 422). To proceed: open the site in your browser, view page source (CTRL+U or Cmd+Option+U), copy all the code and paste it below.',
+    btnAnalyzePasted: 'Analyze Pasted HTML →',
+    errFetch: 'Unable to fetch the site directly (Error 422 - anti-bot or Cloudflare block). You can manually paste the HTML source code below to proceed.'
   }
 };
 function t(k){ return I18N[LANG][k]??k; }
 function setLang(l){ LANG=l; document.getElementById('btnLangIT').classList.toggle('active',l==='it'); document.getElementById('btnLangEN').classList.toggle('active',l==='en'); renderLang(); }
 function renderLang(){
-  const ids={ 'i18n-headline':'headline','i18n-subhead':'subhead','i18n-fieldLabel':'fieldLabel','i18n-btnReset':'btnReset','i18n-footer':'footer','i18n-toneLabel':'toneLabel' };
+  const ids={ 'i18n-headline':'headline','i18n-subhead':'subhead','i18n-fieldLabel':'fieldLabel','i18n-btnReset':'btnReset','i18n-footer':'footer','i18n-toneLabel':'toneLabel','i18n-fallbackLabel':'fallbackLabel','i18n-fallbackDesc':'fallbackDesc' };
   Object.entries(ids).forEach(([id,key])=>{ el=document.getElementById(id); if(el) el.innerHTML=t(key); });
   document.getElementById('urlInput').placeholder=t('placeholder');
   document.getElementById('btnAnalyze').textContent=t('btnAnalyze');
   document.getElementById('btnPdf').textContent=t('btnPdf');
+  const btnP = document.getElementById('i18n-btnAnalyzePasted');
+  if(btnP) btnP.textContent=t('btnAnalyzePasted');
   for(let i=1;i<=4;i++){ let el=document.getElementById('s'+i); if(el) el.textContent=t('s'+i); }
   document.getElementById('toneDesc').textContent=t('toneLevels')[TONE-1]||'';
 }
@@ -715,6 +737,7 @@ async function runAnalysis(){
   url = normalizeUrl(url);
   if(!url){ showErr(t('errInvalidUrl')); return; }
   hideErr(); clearResults();
+  document.getElementById('fallbackHtmlContainer').style.display='none';
   document.getElementById('inputSection').style.opacity='0.4';
   document.getElementById('loadingSection').style.display='block';
   document.getElementById('resultsSection').style.display='none';
@@ -722,14 +745,56 @@ async function runAnalysis(){
   setStep(1);
   const history = await checkDomainHistory(url);
   const html = await fetchPage(url);
+  
+  if (!html) {
+    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('inputSection').style.opacity = '1';
+    document.getElementById('btnAnalyze').disabled = false;
+    showErr(t('errFetch'));
+    document.getElementById('fallbackHtmlContainer').style.display = 'block';
+    return;
+  }
   setStep(2);
-  const signals = html ? extractSignals(html, url) : null;
+  const signals = extractSignals(html, url);
   setStep(3);
   let aiFiles = { llmsTxt:null, robotsTxt:null, agentsMd:null, sitemapXml:false };
   try{ aiFiles = await fetchAiFiles(url); }catch(e){ console.warn(e); }
   setStep(4);
   const scores = computeScores(signals, aiFiles, history, html);
   
+  await executeGeminiAnalysis(url, signals, aiFiles, scores, history, html);
+}
+async function runAnalysisWithPastedHtml(){
+  let url = document.getElementById('urlInput').value.trim();
+  url = normalizeUrl(url) || 'https://example.com';
+  const html = document.getElementById('fallbackHtmlInput').value.trim();
+  if(!html || html.length < 200){
+    alert(LANG === 'en' ? 'Please paste a valid HTML source code.' : 'Inserisci un codice HTML valido.');
+    return;
+  }
+  
+  hideErr(); clearResults();
+  document.getElementById('fallbackHtmlContainer').style.display = 'none';
+  document.getElementById('inputSection').style.opacity = '0.4';
+  document.getElementById('loadingSection').style.display = 'block';
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('btnAnalyze').disabled = true;
+  
+  setStep(1);
+  const history = await checkDomainHistory(url);
+  
+  setStep(2);
+  const signals = extractSignals(html, url);
+  
+  setStep(3);
+  const aiFiles = { llmsTxt:null, robotsTxt:null, agentsMd:null, sitemapXml:false };
+  
+  setStep(4);
+  const scores = computeScores(signals, aiFiles, history, html);
+  
+  await executeGeminiAnalysis(url, signals, aiFiles, scores, history, html);
+}
+async function executeGeminiAnalysis(url, signals, aiFiles, scores, history, html) {
   const langInstruction = (LANG==='en')?'CRITICAL: Respond ENTIRELY in ENGLISH.\n\n':'';
   const toneInstructionDetail = (LANG==='en')
     ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable. Never mention Wikipedia, news articles, external citations, or authority based on third-party publications. Focus only on the site structure, data quality, coherence, and AI accessibility. ALIGN TEXT WITH SCORE: If a dimension score is below 50, the description must be critical and focus on failures, avoiding words like "eccellente" or "solido".'
