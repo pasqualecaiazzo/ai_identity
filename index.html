@@ -123,7 +123,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .tone-row{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}
 .tone-label{font-size:.6rem;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
 .tone-btns{display:flex;gap:.35rem}
-.tone-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.1em;padding:.3rem .65rem;cursor:pointer;transition:all .2s;position:relative}
+.tone-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.15em;padding:.3rem .65rem;cursor:pointer;transition:all .2s;position:relative}
 .tone-btn:hover{border-color:var(--gold);color:var(--gold)}
 .tone-btn.active{border-color:var(--gold);color:var(--bg);background:var(--gold)}
 .tone-desc{font-size:.62rem;color:var(--dim);font-style:italic;flex:1;min-width:140px}
@@ -236,7 +236,7 @@ function t(k){ return I18N[LANG][k]??k; }
 function setLang(l){ LANG=l; document.getElementById('btnLangIT').classList.toggle('active',l==='it'); document.getElementById('btnLangEN').classList.toggle('active',l==='en'); renderLang(); }
 function renderLang(){
   const ids={ 'i18n-headline':'headline','i18n-subhead':'subhead','i18n-fieldLabel':'fieldLabel','i18n-btnReset':'btnReset','i18n-footer':'footer','i18n-toneLabel':'toneLabel' };
-  Object.entries(ids).forEach(([id,key])=>{ let el=document.getElementById(id); if(el) el.innerHTML=t(key); });
+  Object.entries(ids).forEach(([id,key])=>{ el=document.getElementById(id); if(el) el.innerHTML=t(key); });
   document.getElementById('urlInput').placeholder=t('placeholder');
   document.getElementById('btnAnalyze').textContent=t('btnAnalyze');
   document.getElementById('btnPdf').textContent=t('btnPdf');
@@ -337,6 +337,13 @@ function extractSignals(html, url){
   const missingAlt = images.filter(img => !img.hasAttribute('alt') || img.getAttribute('alt').trim() === '').length;
   // Analisi Dati Strutturati Addizionali
   const hasLocalBusiness = allObjects.some(o => ['LocalBusiness', 'Store', 'ProfessionalService', 'Showroom'].includes(o['@type']) || (Array.isArray(o['@type']) && o['@type'].some(t => ['LocalBusiness', 'Store'].includes(t))));
+  // Segnali di Grafo per Rete Professionale
+  const hasVatOrTaxId = allObjects.some(o => o && (o.vatID || o.taxID || o.leiCode || o.iso6523Code));
+  const hasFounderOrEmployee = allObjects.some(o => o && (o.founder || o.employee || o.founders || o.employees || o.member || o.members));
+  const hasMemberOfOrParent = allObjects.some(o => o && (o.memberOf || o.parentOrganization || o.subOrganization || o.sponsor || o.brand || o.knows));
+  const hasContactPoint = allObjects.some(o => o && (o.contactPoint || o.contactPoints || o['@type'] === 'ContactPoint'));
+  const hasAlumniOrCredential = allObjects.some(o => o && (o.alumniOf || o.hasCredential));
+  const hasAffiliation = allObjects.some(o => o && (o.worksFor || o.affiliation));
   return {
     url, title:doc.title||null, description:content('meta[name="description"]'), canonical:hrefAttr('link[rel="canonical"]'),
     ogTitle:content('meta[property="og:title"]'), ogDescription:content('meta[property="og:description"]'),
@@ -361,7 +368,15 @@ function extractSignals(html, url){
     totalImages,
     missingAlt,
     hasSemanticTags: /<(main|article|header|footer|nav)/i.test(html),
-    hasHeaderTag: /<header/i.test(html)
+    hasHeaderTag: /<header/i.test(html),
+    
+    // Nuovi segnali per Rete Professionale
+    hasVatOrTaxId,
+    hasFounderOrEmployee,
+    hasMemberOfOrParent,
+    hasContactPoint,
+    hasAlumniOrCredential,
+    hasAffiliation
   };
 }
 function detectPlatform(html, jsonLd){
@@ -410,7 +425,7 @@ async function fetchAiFiles(baseUrl){
         const txt = await r.text();
         return { content:txt, status:'found' };
       }
-      return { content:null, status:r.status===404?'absent':'unreachable' };
+      return { content:null, status:r.status===444 || r.status===404 ?'absent':'unreachable' };
     }catch(e){ return { content:null, status:'unreachable' }; }
   }
   const rb = await tryFetch('/robots.txt');
@@ -433,7 +448,7 @@ async function fetchAiFiles(baseUrl){
   }
   return results;
 }
-// ================ ALGORITMO DI PUNTEGGIO AGGIORNATO E BILANCIATO ================
+// ================ ALGORITMO DI PUNTEGGIO OTTIMIZZATO PER PROFESSIONISTI E PMI ================
 function computeScores(signals, aiFiles, history, html) {
   if(!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
   const allObjects = signals.jsonLd.flatMap(j=>j['@graph']||[j]);
@@ -609,34 +624,75 @@ function computeScores(signals, aiFiles, history, html) {
   }
   pr = Math.max(0, Math.min(100, Math.round(pr)));
   
-  // 5. RETE PROFESSIONALE (g)
+  // 5. RETE PROFESSIONALE (g) - Riprogettata per professionisti e PMI (Wikipedia/Wikidata non sono bloccanti)
   let g = 0;
   const hasGraph = signals.hasOrgSchema || signals.hasPersonSchema;
   if (hasGraph) {
-    const orgOrPerson = person || allObjects.find(o=>o['@type']==='Organization');
+    const orgOrPerson = person || allObjects.find(o => o && o['@type'] && (['Organization', 'LocalBusiness', 'Store', 'ProfessionalService', 'Showroom'].includes(o['@type']) || (Array.isArray(o['@type']) && o['@type'].some(t => ['Organization', 'LocalBusiness'].includes(t)))));
     if(orgOrPerson){
       const sameAs = Array.isArray(orgOrPerson.sameAs)?orgOrPerson.sameAs:(orgOrPerson.sameAs?[orgOrPerson.sameAs]:[]);
-      let kg=0;
+      let kg = 0;
+      let hasWikidataSameAs = false;
+      let hasWikipediaSameAs = false;
+      let socialCount = 0;
+      // Punteggi realistici per i canali professionali reali di PMI e professionisti
       for(const link of sameAs){
-        if(/linkedin\.com/i.test(link)) kg+=15;
-        else if(/github\.com/i.test(link)) kg+=10;
-        else if(/instagram\.com|facebook\.com/i.test(link)) kg+=5;
-        else kg+=2;
+        const lLower = link.toLowerCase();
+        if(lLower.includes('linkedin.com')) {
+          kg += 30; // Rete professionale centrale
+        } else if(lLower.includes('google.com/maps') || lLower.includes('google.it/maps') || lLower.includes('trustpilot.com')) {
+          kg += 20; // Local directories o recensioni certificate
+        } else if(lLower.includes('github.com') || lLower.includes('behance.net') || lLower.includes('dribbble.com') || lLower.includes('medium.com')) {
+          kg += 20; // Portfolio o canali di settore
+        } else if(lLower.includes('wikidata.org')) {
+          kg += 25; // Wikidata opzionale (bonus)
+          hasWikidataSameAs = true;
+        } else if(lLower.includes('wikipedia.org')) {
+          kg += 25; // Wikipedia opzionale (bonus)
+          hasWikipediaSameAs = true;
+        } else if(lLower.includes('instagram.com') || lLower.includes('facebook.com') || lLower.includes('twitter.com') || lLower.includes('x.com') || lLower.includes('youtube.com')) {
+          socialCount++;
+          if (socialCount === 1) kg += 15; // Primo social standard
+          else kg += 5; // Social successivi
+        } else {
+          kg += 5; // Altri link di qualità (es. albi, siti partner, directory locali)
+        }
       }
-      g += Math.min(50, kg);
+      // Se c'è P.IVA / taxID / Registro Imprese nel JSON-LD, contiamo come certificazione ufficiale (20 pts)
+      if (signals.hasVatOrTaxId) {
+        kg += 20;
+      }
+      
+      // Il blocco dei canali professionali / sameAs vale fino a un massimo di 70 punti (raggiungibile facilmente senza wikipedia/wikidata)
+      g += Math.min(70, kg);
+      
+      // 2. Connessioni di Grafo / Ecosistema (max 30 punti)
+      let connPts = 0;
       if (isOrg) {
-        if (orgOrPerson.parentOrganization || orgOrPerson.subOrganization) g += 20;
-        if (orgOrPerson.memberOf) g += 15;
-        if (signals.emails && signals.emails.length > 0) g += 15;
+        // Collegamento ai Fondatori/Dipendenti (Person entities)
+        if (signals.hasFounderOrEmployee) connPts += 15;
+        // Relazioni con partner, parent/sub org, o brand
+        if (signals.hasMemberOfOrParent) connPts += 10;
+        // Punti di contatto o e-mail certificate (PEC, ContactPoint)
+        if (signals.hasContactPoint || (signals.emails && signals.emails.length > 0)) connPts += 5;
       } else {
+        // Per Professionista: Collegamento ad aziende/istituzioni reali
+        if (signals.hasAffiliation) connPts += 15;
+        // Competenze e abilità (knowsAbout)
         const knows = orgOrPerson.knowsAbout;
-        if(knows){ const cnt=Array.isArray(knows)?knows.length:1; g+=Math.min(20, cnt*8); }
-        if(orgOrPerson.worksFor || orgOrPerson.affiliation) g+=20;
+        if (knows) {
+          const cnt = Array.isArray(knows) ? knows.length : 1;
+          connPts += Math.min(10, cnt * 5);
+        }
+        // Credenziali, certificazioni, istruzione (alumniOf, hasCredential)
+        if (signals.hasAlumniOrCredential) connPts += 5;
       }
+      g += connPts;
+      
+      g = Math.min(100, g);
     }
-    g = Math.min(100, g);
   } else {
-    g = 15; // default basso (e non 50) se non esiste alcun grafo semantico
+    g = 15; // default basso se non esiste alcun grafo semantico
   }
   
   // Calcolo del punteggio Overall con Pesi Dinamici
@@ -673,10 +729,11 @@ async function runAnalysis(){
   try{ aiFiles = await fetchAiFiles(url); }catch(e){ console.warn(e); }
   setStep(4);
   const scores = computeScores(signals, aiFiles, history, html);
+  
   const langInstruction = (LANG==='en')?'CRITICAL: Respond ENTIRELY in ENGLISH.\n\n':'';
   const toneInstructionDetail = (LANG==='en')
-    ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable. Never mention Wikipedia, news articles, external citations, or authority based on third-party publications. Focus only on the site structure, data quality, coherence, and AI accessibility.'
-    : 'TONO: Consulente. Fornisci commenti dettagliati (3-5 frasi per dimensione). Spiega perché ogni punto di forza o lacuna è rilevante. I passi operativi devono essere concreti e attuabili. Non menzionare Wikipedia, articoli di giornale, citazioni esterne o autorità basata su pubblicazioni terze. Concentrati solo sulla struttura del sito, qualità dei dati, coerenza e accessibilità AI.';
+    ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable. Never mention Wikipedia, news articles, external citations, or authority based on third-party publications. Focus only on the site structure, data quality, coherence, and AI accessibility. ALIGN TEXT WITH SCORE: If a dimension score is below 50, the description must be critical and focus on failures, avoiding words like "eccellente" or "solido".'
+    : 'TONO: Consulente. Fornisci commenti dettagliati (3-5 frasi per dimensione). Spiega perché ogni punto di forza o lacuna è rilevante. I passi operativi devono essere concreti e attuabili. Non menzionare Wikipedia, articoli di giornale, citazioni esterne o autorità basata su pubblicazioni terze. Concentrati solo sulla struttura del sito, qualità dei dati, coerenza e accessibilità AI. ALLINEA IL TESTO AL PUNTEGGIO: Se il punteggio di una dimensione è sotto 50 (Critico), la descrizione deve essere critica ed evidenziare le lacune, evitando aggettivi come "eccellente" o "solido". Se è alto (sopra 80), enfatizza la qualità.';
   
   const sysPrompt = langInstruction + (LANG==='en'?
     `You are an AI Identity expert. Respond ONLY with valid JSON.
