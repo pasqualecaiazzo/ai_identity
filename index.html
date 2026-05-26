@@ -88,7 +88,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   body{background:#0D0D0D!important;color:#EDE8DF!important;font-size:9pt}
   .wrap{max-width:100%!important;padding:0!important}
-  .header,.input-section,.loading,.result-actions,.footer,.lang-bar{display:none!important}
+  .header,.input-section,.loading,.result-actions,.footer,.lang-bar,#technicalAuditBox{display:none!important}
   .results{display:block!important}
   .score-hero{background:#161616!important;border:1px solid #2a2a2a!important;padding:12pt 16pt!important;display:flex!important;align-items:center!important;gap:16pt!important;margin-bottom:8pt!important;page-break-inside:avoid}
   .hero-info h2{font-size:16pt!important;color:#EDE8DF!important}
@@ -186,6 +186,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <div id="scoreHeroWrap"></div>
     <div id="dataBar"></div>
     <div class="dims-grid" id="dimsGrid"></div>
+    <div id="technicalAuditBox" style="background:var(--surface); border:1px solid var(--border); padding:1.25rem 1.5rem; margin-bottom:1rem;">
+      <div onclick="toggleTechAudit()" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none;">
+        <span style="font-size:.58rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold);" id="i18n-techAuditTitle">Dettagli Audit Tecnico</span>
+        <span id="techAuditToggleSign" style="font-size:.7rem; color:var(--gold); font-weight:bold;">[+]</span>
+      </div>
+      <div id="techAuditContent" style="display:none; margin-top:1.25rem; font-size:.7rem; line-height:1.7; border-top:1px solid var(--border); padding-top:1rem; color:var(--text);">
+      </div>
+    </div>
     <div class="bottom-grid" id="bottomGrid"></div>
     <div class="result-actions">
       <button class="btn-reset" id="i18n-btnReset" onclick="resetTool()"></button>
@@ -194,6 +202,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
   <div class="footer" id="i18n-footer"></div>
 </div>
+
 <script>
 // =======================  LINGUE E UI  =======================
 let TONE = 3;
@@ -220,7 +229,8 @@ const I18N = {
     fallbackLabel: 'Incolla il codice HTML (Sorgente Pagina)',
     fallbackDesc: 'Il sito sembra protetto da sistemi anti-bot (Cloudflare/Errore 422). Per procedere: apri il sito nel tuo browser, premi CTRL+U (o tasto destro -> Visualizza sorgente pagina), copia tutto il codice e incollalo qui sotto.',
     btnAnalyzePasted: 'Analizza HTML Incollato →',
-    errFetch: 'Impossibile recuperare il sito direttamente (Errore 422 - blocco anti-bot o Cloudflare). Puoi incollare il codice HTML manualmente qui sotto per procedere.'
+    errFetch: 'Impossibile recuperare il sito direttamente (Errore 422 - blocco anti-bot o Cloudflare). Puoi incollare il codice HTML manualmente qui sotto per procedere.',
+    techAuditTitle: 'Dettagli Audit Tecnico'
   },
   en: {
     headline: 'Who are you<br><em>in the AI era?</em>',
@@ -243,13 +253,14 @@ const I18N = {
     fallbackLabel: 'Paste HTML Source Code',
     fallbackDesc: 'The site seems protected by anti-bot systems (Cloudflare/Error 422). To proceed: open the site in your browser, view page source (CTRL+U or Cmd+Option+U), copy all the code and paste it below.',
     btnAnalyzePasted: 'Analyze Pasted HTML →',
-    errFetch: 'Unable to fetch the site directly (Error 422 - anti-bot or Cloudflare block). You can manually paste the HTML source code below to proceed.'
+    errFetch: 'Unable to fetch the site directly (Error 422 - anti-bot or Cloudflare block). You can manually paste the HTML source code below to proceed.',
+    techAuditTitle: 'Technical Audit Details'
   }
 };
 function t(k){ return I18N[LANG][k]??k; }
 function setLang(l){ LANG=l; document.getElementById('btnLangIT').classList.toggle('active',l==='it'); document.getElementById('btnLangEN').classList.toggle('active',l==='en'); renderLang(); }
 function renderLang(){
-  const ids={ 'i18n-headline':'headline','i18n-subhead':'subhead','i18n-fieldLabel':'fieldLabel','i18n-btnReset':'btnReset','i18n-footer':'footer','i18n-toneLabel':'toneLabel','i18n-fallbackLabel':'fallbackLabel','i18n-fallbackDesc':'fallbackDesc' };
+  const ids={ 'i18n-headline':'headline','i18n-subhead':'subhead','i18n-fieldLabel':'fieldLabel','i18n-btnReset':'btnReset','i18n-footer':'footer','i18n-toneLabel':'toneLabel','i18n-fallbackLabel':'fallbackLabel','i18n-fallbackDesc':'fallbackDesc','i18n-techAuditTitle':'techAuditTitle' };
   Object.entries(ids).forEach(([id,key])=>{ el=document.getElementById(id); if(el) el.innerHTML=t(key); });
   document.getElementById('urlInput').placeholder=t('placeholder');
   document.getElementById('btnAnalyze').textContent=t('btnAnalyze');
@@ -263,8 +274,135 @@ function setTone(n){ TONE=n; document.querySelectorAll('.tone-btn').forEach((b,i
 function showErr(m){ let e=document.getElementById('errorBox'); e.textContent=m; e.style.display='block'; }
 function hideErr(){ document.getElementById('errorBox').style.display='none'; }
 function setStep(n){ for(let i=1;i<=4;i++){ let e=document.getElementById('s'+i); if(e){ e.classList.remove('active','done'); if(i<n) e.classList.add('done'); else if(i===n) e.classList.add('active'); } } }
-function clearResults(){ document.getElementById('scoreHeroWrap').innerHTML=''; document.getElementById('dataBar').innerHTML=''; document.getElementById('dimsGrid').innerHTML=''; document.getElementById('bottomGrid').innerHTML=''; let p=document.getElementById('percezioneBox'); if(p) p.remove(); }
+function clearResults(){
+  document.getElementById('scoreHeroWrap').innerHTML='';
+  document.getElementById('dataBar').innerHTML='';
+  document.getElementById('dimsGrid').innerHTML='';
+  document.getElementById('bottomGrid').innerHTML='';
+  let p=document.getElementById('percezioneBox'); if(p) p.remove();
+  const c = document.getElementById('techAuditContent'); if(c) c.innerHTML='';
+  const s = document.getElementById('techAuditToggleSign'); if(s) s.textContent='[+]';
+  const content = document.getElementById('techAuditContent'); if(content) content.style.display='none';
+}
+function toggleTechAudit() {
+  const content = document.getElementById('techAuditContent');
+  const sign = document.getElementById('techAuditToggleSign');
+  if (!content || !sign) return;
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    sign.textContent = '[-]';
+  } else {
+    content.style.display = 'none';
+    sign.textContent = '[+]';
+  }
+}
+function renderTechAudit(signals, aiFiles, scores, fetchBlocked) {
+  const content = document.getElementById('techAuditContent');
+  if (!content) return;
+  const isIt = LANG === 'it';
+  const yesTag = `<span style="color:var(--teal)">✓ ${isIt?'Sì':'Yes'}</span>`;
+  const noTag = `<span style="color:var(--coral)">✗ ${isIt?'No':'No'}</span>`;
+  const warnTag = (msg) => `<span style="color:var(--amber)">⚠ ${msg}</span>`;
+  const errorTag = (msg) => `<span style="color:var(--coral)">✗ ${msg}</span>`;
+  const okTag = (msg) => `<span style="color:var(--teal)">✓ ${msg}</span>`;
+  const jq = signals?.jsonLdQuality || {};
+
+  let html = '';
+  html += `<div style="margin-bottom:1.5rem">
+    <div style="font-weight:bold; color:var(--gold); font-size:.65rem; text-transform:uppercase; margin-bottom:.5rem; letter-spacing:.1em">${isIt?'1. Leggibilità & Struttura HTML':'1. Readability & HTML Structure'}</div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">Language (lang):</span>
+      <span>${signals?.htmlLang ? okTag(`lang="${signals.htmlLang}"`) : errorTag(isIt?'Mancante (Penalità -5)' : 'Missing (Penalty -5)')}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">Text/HTML Ratio:</span>
+      <span>${signals?.signalToNoiseRatio}% (HTML: ${signals?.htmlLength||0} B, Text: ${signals?.textLength||0} B) ${
+        signals?.signalToNoiseRatio >= 15 ? okTag(isIt?'Ottimo (Bonus +5)':'Excellent (Bonus +5)') :
+        signals?.signalToNoiseRatio < 5 ? errorTag(isIt?'Troppo codice rispetto al testo (Penalità -5)':'Too much code/low density (Penalty -5)') :
+        `<span>(Normale)</span>`
+      }</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">Charset (UTF-8):</span>
+      <span>${signals?.hasUtf8 ? yesTag : errorTag(isIt?'Charset non UTF-8 o non rilevato (Penalità -5)':'Charset not UTF-8 or not detected (Penalty -5)')}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">JS Dependency (CSR):</span>
+      <span>${signals?.isPossibleCsr ? errorTag(isIt?'Rilevata dipendenza Javascript elevata (Penalità -15)':'JS dependency/empty page detected (Penalty -15)') : okTag(isIt?'No (Contenuto testuale pronto)':'No (Text content fully pre-rendered)')}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">Semantic HTML5 Tags:</span>
+      <span>${signals?.hasSemanticTags ? yesTag : warnTag(isIt?'Mancano tag semantici (<main>, <article>, etc.)':'Missing semantic tags (<main>, <article>, etc.)')}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">Heading Hierarchy:</span>
+      <span>${signals?.headingErrors && signals.headingErrors.length > 0 ? 
+        errorTag(signals.headingErrors.join(' | ')) : yesTag}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">Image ALTs:</span>
+      <span>${signals?.totalImages > 0 ? 
+        (signals.missingAlt === 0 ? okTag(isIt?'Tutte le immagini hanno ALT':'All images have ALT') : warnTag(`${signals.missingAlt} su ${signals.totalImages} immagini senza ALT`)) : 
+        `<span style="color:var(--muted)">${isIt?'Nessuna immagine rilevata':'No images detected'}</span>`}</span>
+    </div>
+  </div>`;
+
+  html += `<div style="margin-bottom:1.5rem">
+    <div style="font-weight:bold; color:var(--gold); font-size:.65rem; text-transform:uppercase; margin-bottom:.5rem; letter-spacing:.1em">${isIt?'2. Policy di Accesso AI':'2. AI Accessibility Policy'}</div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">robots.txt:</span>
+      <span>${aiFiles?.robotsTxtStatus === 'found' ? yesTag : noTag}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">llms.txt:</span>
+      <span>${aiFiles?.llmsTxtStatus === 'found' ? yesTag : noTag}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">agents.md:</span>
+      <span>${aiFiles?.agentsMdStatus === 'found' ? yesTag : noTag}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">XML Sitemap:</span>
+      <span>${aiFiles?.sitemapXml ? yesTag : noTag}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">WAF Firewall Status:</span>
+      <span>${fetchBlocked ? errorTag(isIt?'Attivo (Blocco Crawler AI automatico)':'Active (Blocks AI Crawlers)') : okTag(isIt?'Nessun blocco WAF rilevato':'No WAF blocks detected')}</span>
+    </div>
+  </div>`;
+
+  html += `<div style="margin-bottom:0.5rem">
+    <div style="font-weight:bold; color:var(--gold); font-size:.65rem; text-transform:uppercase; margin-bottom:.5rem; letter-spacing:.1em">${isIt?'3. Dati Strutturati & Grafo Identità':'3. Structured Data & Identity Graph'}</div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">JSON-LD Blocks:</span>
+      <span>${signals?.jsonLd?.length > 0 ? okTag(`${signals.jsonLd.length} blocchi trovati (${jq.source||''})`) : noTag}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">Entity Types:</span>
+      <span>${signals?.jsonLdTypes && signals.jsonLdTypes.length > 0 ? signals.jsonLdTypes.join(', ') : noTag}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">sameAs Connections:</span>
+      <span>${signals?.sameAs && signals.sameAs.length > 0 ? signals.sameAs.map(link => `<a href="${link}" target="_blank" style="color:var(--gold); text-decoration:underline; word-break:break-all; display:block; margin-bottom:.2rem;">${link}</a>`).join('') : noTag}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">Official VAT/Tax ID:</span>
+      <span>${signals?.hasVatOrTaxId ? yesTag : noTag}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">Organization / Person Schema:</span>
+      <span>${signals?.hasOrgSchema ? okTag('Organization/LocalBusiness') : signals?.hasPersonSchema ? okTag('Person') : errorTag(isIt?'Mancanti schemi identità principali':'Identity schemas missing')}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:.5rem; border-bottom:1px solid var(--border2); padding:.4rem 0;">
+      <span style="color:var(--muted)">Wikidata / Wikipedia:</span>
+      <span>${jq.hasWikidata ? okTag('Wikidata sameAs') : ''} ${jq.hasWikipedia ? okTag('Wikipedia sameAs') : ''} ${(!jq.hasWikidata && !jq.hasWikipedia) ? `<span style="color:var(--muted)">${isIt?'Assenti (opzionali per PMI/Professionisti)':'Absent (optional for SMEs/Pros)'}</span>` : ''}</span>
+    </div>
+  </div>`;
+
+  content.innerHTML = html;
+}
 function resetTool(){ clearResults(); document.getElementById('resultsSection').style.display='none'; document.getElementById('inputSection').style.display='block'; document.getElementById('inputSection').style.opacity='1'; document.getElementById('btnAnalyze').disabled=false; document.getElementById('urlInput').value=''; hideErr(); }
+
 // ================ CRONOLOGIA DOMINIO (via backend) ================
 async function checkDomainHistory(url){
   const domain = new URL(url).hostname;
@@ -288,6 +426,7 @@ async function checkDomainHistory(url){
   if(found.includes(5)) historyBonus+=10;
   return { bonus:historyBonus, years:found };
 }
+
 // ================ FETCH PAGINA (solo backend) ================
 async function fetchPage(url){
   try{
@@ -300,6 +439,7 @@ async function fetchPage(url){
   }catch(e){ console.error('Backend fetch error:',e); }
   return null;
 }
+
 // ================ ESTRAZIONE SEGNALI E SEMANTICA HTML ================
 function extractSignals(html, url){
   const doc = new DOMParser().parseFromString(html,'text/html');
@@ -329,6 +469,7 @@ function extractSignals(html, url){
       emailDiscrepancies.push({ email, domain: emailDomain, declared: isDeclared });
     }
   }
+
   // Analisi Intestazioni (Gerarchia Titoli)
   const headings = [...doc.querySelectorAll('h1, h2, h3, h4, h5, h6')].map(h => ({
     level: parseInt(h.tagName[1]),
@@ -347,12 +488,15 @@ function extractSignals(html, url){
   });
   if (h1Count === 0) headingErrors.push("Manca H1 principale sulla homepage");
   else if (h1Count > 1) headingErrors.push(`Trovati molteplici tag H1 (${h1Count})`);
+
   // Analisi Immagini (ALT Text)
   const images = [...doc.querySelectorAll('img')];
   const totalImages = images.length;
   const missingAlt = images.filter(img => !img.hasAttribute('alt') || img.getAttribute('alt').trim() === '').length;
+
   // Analisi Dati Strutturati Addizionali
   const hasLocalBusiness = allObjects.some(o => ['LocalBusiness', 'Store', 'ProfessionalService', 'Showroom'].includes(o['@type']) || (Array.isArray(o['@type']) && o['@type'].some(t => ['LocalBusiness', 'Store'].includes(t))));
+
   // Segnali di Grafo per Rete Professionale
   const hasVatOrTaxId = allObjects.some(o => o && (o.vatID || o.taxID || o.leiCode || o.iso6523Code));
   const hasFounderOrEmployee = allObjects.some(o => o && (o.founder || o.employee || o.founders || o.employees || o.member || o.members));
@@ -360,6 +504,15 @@ function extractSignals(html, url){
   const hasContactPoint = allObjects.some(o => o && (o.contactPoint || o.contactPoints || o['@type'] === 'ContactPoint'));
   const hasAlumniOrCredential = allObjects.some(o => o && (o.alumniOf || o.hasCredential));
   const hasAffiliation = allObjects.some(o => o && (o.worksFor || o.affiliation));
+
+  // Metatag lingua e rapporto testo/codice (Signal-to-Noise Ratio)
+  const htmlLength = html ? html.length : 0;
+  const textLength = doc.body ? doc.body.textContent.replace(/\s+/g,' ').trim().length : 0;
+  const signalToNoiseRatio = htmlLength > 0 ? Math.round((textLength / htmlLength) * 100) : 0;
+  const htmlLang = doc.documentElement ? doc.documentElement.getAttribute('lang') : null;
+  const hasUtf8 = /<meta[^>]+charset=["']?utf-8["']?/i.test(html) || doc.characterSet?.toLowerCase() === 'utf-8';
+  const isPossibleCsr = htmlLength > 1200 && textLength < 350 && html.includes('<script');
+
   return {
     url, title:doc.title||null, description:content('meta[name="description"]'), canonical:hrefAttr('link[rel="canonical"]'),
     ogTitle:content('meta[property="og:title"]'), ogDescription:content('meta[property="og:description"]'),
@@ -392,7 +545,15 @@ function extractSignals(html, url){
     hasMemberOfOrParent,
     hasContactPoint,
     hasAlumniOrCredential,
-    hasAffiliation
+    hasAffiliation,
+
+    // Nuovi segnali di Readability
+    htmlLength,
+    textLength,
+    signalToNoiseRatio,
+    htmlLang,
+    hasUtf8,
+    isPossibleCsr
   };
 }
 function detectPlatform(html, jsonLd){
@@ -427,6 +588,7 @@ function analyzeJsonLdQuality(jsonLd, platform='', html=''){
   } else details.push('Nessuno schema Person');
   return { present:true, source, isPlugin, details, hasWikidata:JSON.stringify(allObjects).includes('wikidata.org'), hasWikipedia:JSON.stringify(allObjects).includes('wikipedia.org') };
 }
+
 // ================ FETCH AI FILES (con supporto agents.md) ================
 async function fetchAiFiles(baseUrl){
   const base = new URL(baseUrl).origin;
@@ -452,6 +614,7 @@ async function fetchAiFiles(baseUrl){
   // Shopify specific agents.md
   const ag = await tryFetch('/agents.md');
   if(ag.status==='found' && ag.content && !isHtmlOrTrash(ag.content)){ results.agentsMd=ag.content.substring(0,800); results.agentsMdStatus='found'; }
+
   let sitemapPaths = ['/sitemap.xml','/sitemap_index.xml','/wp-sitemap.xml','/sitemap-index.xml','/page-sitemap.xml'];
   if(results.robotsTxt){
     const match = results.robotsTxt.match(/^Sitemap:\s*(.+)$/im);
@@ -464,8 +627,9 @@ async function fetchAiFiles(baseUrl){
   }
   return results;
 }
+
 // ================ ALGORITMO DI PUNTEGGIO OTTIMIZZATO PER PROFESSIONISTI E PMI ================
-function computeScores(signals, aiFiles, history, html) {
+function computeScores(signals, aiFiles, history, html, fetchBlocked = false) {
   if(!signals) return { leggibilita:20, grafo:20, coerenza:20, politica:20, profilo:20, overall:20 };
   const allObjects = signals.jsonLd.flatMap(j=>j['@graph']||[j]);
   const person = allObjects.find(o=>o['@type']==='Person'||o['@type']==='ProfilePage');
@@ -507,6 +671,30 @@ function computeScores(signals, aiFiles, history, html) {
     imgPts -= Math.min(10, Math.round(missingRatio * 10));
   }
   l += Math.max(0, imgPts);
+
+  // Tag lingua html lang (Penalizzazione se assente: -5 punti)
+  if (!signals.htmlLang) {
+    l -= 5;
+  }
+  
+  // Rapporto testo/codice (Signal-to-Noise Ratio)
+  // Penalizzazione se c'è troppo codice rispetto al testo utile (bloat)
+  if (signals.signalToNoiseRatio > 0 && signals.signalToNoiseRatio < 5) {
+    l -= 5;
+  } else if (signals.signalToNoiseRatio >= 15) {
+    l += 5; // Bonus per pagine molto dense di contenuto testuale pulito
+  }
+
+  // Set di caratteri UTF-8 (Penalizzazione se assente: -5 punti)
+  if (!signals.hasUtf8) {
+    l -= 5;
+  }
+
+  // Dipendenza Javascript / Client-Side Rendering (Penalizzazione se sospetto CSR: -15 punti)
+  if (signals.isPossibleCsr) {
+    l -= 15;
+  }
+
   l = Math.max(0, Math.min(100, l));
   
   // 2. COERENZA IDENTITÀ (c) - Calcolo sdoppiato Persona / Organizzazione
@@ -603,10 +791,14 @@ function computeScores(signals, aiFiles, history, html) {
   
   // 3. ACCESSIBILITÀ AI (p)
   let p = 0;
-  if(aiFiles?.llmsTxt || aiFiles?.agentsMd) p+=50;
-  if(aiFiles?.robotsTxt){ if(/gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p+=35; else p+=20; }
-  if(aiFiles?.sitemapXml) p+=15;
-  p = Math.min(100,p);
+  if (fetchBlocked) {
+    p = 10; // Accesso AI bloccato preventivamente da firewall/Cloudflare
+  } else {
+    if(aiFiles?.llmsTxt || aiFiles?.agentsMd) p+=50;
+    if(aiFiles?.robotsTxt){ if(/gptbot|claudebot|google-extended|perplexity/i.test(aiFiles.robotsTxt)) p+=35; else p+=20; }
+    if(aiFiles?.sitemapXml) p+=15;
+    p = Math.min(100,p);
+  }
   
   // 4. PROFILO (pr)
   let pr = 0;
@@ -651,6 +843,7 @@ function computeScores(signals, aiFiles, history, html) {
       let hasWikidataSameAs = false;
       let hasWikipediaSameAs = false;
       let socialCount = 0;
+
       // Punteggi realistici per i canali professionali reali di PMI e professionisti
       for(const link of sameAs){
         const lLower = link.toLowerCase();
@@ -674,6 +867,7 @@ function computeScores(signals, aiFiles, history, html) {
           kg += 5; // Altri link di qualità (es. albi, siti partner, directory locali)
         }
       }
+
       // Se c'è P.IVA / taxID / Registro Imprese nel JSON-LD, contiamo come certificazione ufficiale (20 pts)
       if (signals.hasVatOrTaxId) {
         kg += 20;
@@ -724,6 +918,7 @@ function computeScores(signals, aiFiles, history, html) {
   return scores;
 }
 function normalizeUrl(raw){ raw=raw.trim().replace(/\s+/g,''); if(!raw) return null; if(/^@/.test(raw)) raw=raw.substring(1); if(!/^https?:\/\//i.test(raw)) raw='https://'+raw; try{ new URL(raw); return raw; }catch{return null;} }
+
 // ================ ANALISI PRINCIPALE ================
 async function runAnalysis(){
   let url = document.getElementById('urlInput').value.trim();
@@ -748,16 +943,18 @@ async function runAnalysis(){
     document.getElementById('fallbackHtmlContainer').style.display = 'block';
     return;
   }
+
   setStep(2);
   const signals = extractSignals(html, url);
   setStep(3);
   let aiFiles = { llmsTxt:null, robotsTxt:null, agentsMd:null, sitemapXml:false };
   try{ aiFiles = await fetchAiFiles(url); }catch(e){ console.warn(e); }
   setStep(4);
-  const scores = computeScores(signals, aiFiles, history, html);
+  const scores = computeScores(signals, aiFiles, history, html, false);
   
-  await executeGeminiAnalysis(url, signals, aiFiles, scores, history, html);
+  await executeGeminiAnalysis(url, signals, aiFiles, scores, history, html, false);
 }
+
 async function runAnalysisWithPastedHtml(){
   let url = document.getElementById('urlInput').value.trim();
   url = normalizeUrl(url) || 'https://example.com';
@@ -784,15 +981,16 @@ async function runAnalysisWithPastedHtml(){
   const aiFiles = { llmsTxt:null, robotsTxt:null, agentsMd:null, sitemapXml:false };
   
   setStep(4);
-  const scores = computeScores(signals, aiFiles, history, html);
+  const scores = computeScores(signals, aiFiles, history, html, true);
   
-  await executeGeminiAnalysis(url, signals, aiFiles, scores, history, html);
+  await executeGeminiAnalysis(url, signals, aiFiles, scores, history, html, true);
 }
-async function executeGeminiAnalysis(url, signals, aiFiles, scores, history, html) {
+
+async function executeGeminiAnalysis(url, signals, aiFiles, scores, history, html, fetchBlocked = false) {
   const langInstruction = (LANG==='en')?'CRITICAL: Respond ENTIRELY in ENGLISH.\n\n':'';
   const toneInstructionDetail = (LANG==='en')
-    ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable. Never mention Wikipedia, news articles, external citations, or authority based on third-party publications. Focus only on the site structure, data quality, coherence, and AI accessibility. ALIGN TEXT WITH SCORE: If a dimension score is below 50, the description must be critical and focus on failures, avoiding words like "eccellente" or "solido".'
-    : 'TONO: Consulente. Fornisci commenti dettagliati (3-5 frasi per dimensione). Spiega perché ogni punto di forza o lacuna è rilevante. I passi operativi devono essere concreti e attuabili. Non menzionare Wikipedia, articoli di giornale, citazioni esterne o autorità basata su pubblicazioni terze. Concentrati solo sulla struttura del sito, qualità dei dati, coerenza e accessibilità AI. ALLINEA IL TESTO AL PUNTEGGIO: Se il punteggio di una dimensione è sotto 50 (Critico), la descrizione deve essere critica ed evidenziare le lacune, evitando aggettivi come "eccellente" o "solido". Se è alto (sopra 80), enfatizza la qualità.';
+    ? 'TONE: Consultant. Provide detailed insights (3-5 sentences per dimension). Explain why each strength or gap matters. Next steps must be concrete and actionable. Never mention Wikipedia, news articles, external citations, or authority based on third-party publications. Focus only on the site structure, data quality, coherence, and AI accessibility. ALIGN TEXT WITH SCORE: If a dimension score is below 50, the description must be critical and focus on failures, avoiding words like "eccellente" or "solido". If firewallBlocked is true, explain in the AI Accessibility dimension that the main barrier is the network block from the WAF/Cloudflare (error 422/403) preventing AI bots from scanning the site, indicating firewall configuration as the priority next step.'
+    : 'TONO: Consulente. Fornisci commenti dettagliati (3-5 frasi per dimensione). Spiega perché ogni punto di forza o lacuna è rilevante. I passi operativi devono essere concreti e attuabili. Non menzionare Wikipedia, articoli di giornale, citazioni esterne o autorità basata su pubblicazioni terze. Concentrati solo sulla struttura del sito, qualità dei dati, coerenza e accessibilità AI. ALLINEA IL TESTO AL PUNTEGGIO: Se il punteggio di una dimensione è sotto 50 (Critico), la descrizione deve essere critica ed evidenziare le lacune, evitando aggettivi come "eccellente" o "solido". Se è alto (sopra 80), enfatizza la qualità. Se firewallBlocked è true, spiega nella dimensione Accessibilità AI che la barriera principale è il blocco di rete del WAF/Cloudflare (errore 422/403) che impedisce ai bot delle AI di scansionare il sito, indicando come passo prioritario la configurazione del firewall.';
   
   const sysPrompt = langInstruction + (LANG==='en'?
     `You are an AI Identity expert. Respond ONLY with valid JSON.
@@ -814,8 +1012,10 @@ async function executeGeminiAnalysis(url, signals, aiFiles, scores, history, htm
     missingAltImages: `${signals.missingAlt} su ${signals.totalImages}`,
     emailDiscrepancies: signals.emailDiscrepancies,
     hasAgentsMd: !!aiFiles?.agentsMd,
-    hasLlmsTxt: !!aiFiles?.llmsTxt
+    hasLlmsTxt: !!aiFiles?.llmsTxt,
+    firewallBlocked: fetchBlocked
   } : {};
+
   const userMsg = signals ? `Analizza: ${url}
 Dati Audit HTML rilevati: ${JSON.stringify(htmlAuditSummary, null, 2)}
 Dati principali estratti:\n${JSON.stringify({title:signals.title,description:signals.description,ogTitle:signals.ogTitle,ogDescription:signals.ogDescription,jsonLd:signals.jsonLd},null,2)}` : `Pagina non accessibile: ${url}`;
@@ -832,7 +1032,7 @@ Dati principali estratti:\n${JSON.stringify({title:signals.title,description:sig
     const start = clean.indexOf('{'), end = clean.lastIndexOf('}');
     if(start===-1||end===-1) throw new Error(t('errNoJson'));
     const parsed = JSON.parse(clean.substring(start,end+1));
-    renderResults(parsed, signals, aiFiles, scores);
+    renderResults(parsed, signals, aiFiles, scores, fetchBlocked);
   }catch(err){
     document.getElementById('loadingSection').style.display='none';
     document.getElementById('inputSection').style.opacity='1';
@@ -840,8 +1040,10 @@ Dati principali estratti:\n${JSON.stringify({title:signals.title,description:sig
     showErr('Errore: '+err.message);
   }
 }
+
 // Funzione di mappatura colore dinamica basata sul nuovo range di rating
 function sc(s){ return s>=85?'#2DB885':s>=70?'#A9C94C':s>=50?'#D4870E':'#D84F35'; }
+
 // Scala di classificazione professionale aggiornata con etichette corte e sicure per la larghezza
 function scoreToRating(score){
   if(score>=85) return { label:(LANG==='en'?'Excellent':'Eccellente'), color:'#2DB885' };
@@ -849,7 +1051,8 @@ function scoreToRating(score){
   if(score>=50) return { label:(LANG==='en'?'Partial':'Parziale'), color:'#D4870E' };
   return { label:(LANG==='en'?'Critical':'Critico'), color:'#D84F35' };
 }
-function renderResults(d, signals, aiFiles, scores) {
+
+function renderResults(d, signals, aiFiles, scores, fetchBlocked = false) {
   d.score = scores.overall;
   const dimMap = {
     'leggibilita':'leggibilita', 'leggibilità':'leggibilita',
@@ -888,7 +1091,11 @@ function renderResults(d, signals, aiFiles, scores) {
     const jq = signals?.jsonLdQuality;
     const hasDiscrepancy = signals?.emailDiscrepancies?.length > 0;
     const hasUnresolvedDiscrepancy = signals?.emailDiscrepancies?.some(d => !d.declared);
-    const tags = [
+    const tags = [];
+    if (fetchBlocked) {
+      tags.push({l: (LANG==='en'?'Firewall Blocked':'Blocco Firewall WAF'), v: false, warn: true});
+    }
+    tags.push(
       {l: signals?.jsonLd?.length>0 ? (jq?.isPlugin ? `Plugin (${(jq.source||'').split(' ')[0]})` : 'Schema manuale') : 'JSON-LD assente', v: signals?.jsonLd?.length>0, warn: jq?.isPlugin},
       {l:'sameAs', v:(signals?.sameAs?.length||0)>0},
       {l:'Wikidata', v:jq?.hasWikidata||false},
@@ -898,8 +1105,48 @@ function renderResults(d, signals, aiFiles, scores) {
       {l:'robots.txt', v:!!aiFiles?.robotsTxt},
       {l:'sitemap', v:!!aiFiles?.sitemapXml},
       {l: hasDiscrepancy ? (hasUnresolvedDiscrepancy ? 'E-mail Disallineata' : 'E-mail Alternativa') : 'E-mail Allineata', v: !hasDiscrepancy, warn: hasUnresolvedDiscrepancy}
-    ];
+    );
+
+    // Nuovi tag per la validazione della Readability
+    if (signals?.htmlLang) {
+      tags.push({l: `Lang: "${signals.htmlLang.toUpperCase()}"`, v: true});
+    } else {
+      tags.push({l: (LANG==='en'?'Lang: missing':'Lang: assente'), v: false, warn: true});
+    }
+    if (signals?.signalToNoiseRatio !== undefined) {
+      const ratio = signals.signalToNoiseRatio;
+      tags.push({
+        l: LANG==='en' ? `Text/HTML: ${ratio}%` : `Testo/Codice: ${ratio}%`,
+        v: ratio >= 15,
+        warn: ratio < 5
+      });
+    }
+    if (signals?.isPossibleCsr) {
+      tags.push({l: (LANG==='en'?'JS Dependency (CSR)':'Dipendenza JS (CSR)'), v: false, warn: true});
+    }
+    if (signals?.headingErrors && signals.headingErrors.length > 0) {
+      tags.push({l: (LANG==='en'?'Heading Errors':'Errori Gerarchia Titoli'), v: false, warn: true});
+    } else {
+      tags.push({l: (LANG==='en'?'Heading Hierarchy OK':'Gerarchia Titoli OK'), v: true});
+    }
+    if (signals?.hasUtf8) {
+      tags.push({l: 'UTF-8 Charset', v: true});
+    } else {
+      tags.push({l: (LANG==='en'?'No UTF-8 Charset':'Charset non UTF-8'), v: false, warn: true});
+    }
+    if (signals?.totalImages > 0) {
+      const missingAlt = signals.missingAlt;
+      tags.push({
+        l: LANG==='en' ? `ALT Images: ${signals.totalImages - missingAlt}/${signals.totalImages}` : `ALT Immagini: ${signals.totalImages - missingAlt}/${signals.totalImages}`,
+        v: missingAlt === 0,
+        warn: missingAlt > 0
+      });
+    }
+
     document.getElementById('dataBar').innerHTML = `<div class="data-bar">${tags.map(t=>`<span class="dtag ${t.warn?'warn':t.v?'yes':'no'}">${t.warn?'⚠':t.v?'✓':'✗'} ${t.l}</span>`).join('')}</div>`;
+  }
+  if (signals) {
+    renderTechAudit(signals, aiFiles, scores, fetchBlocked);
   }
   document.getElementById('dimsGrid').innerHTML = dimensioniArray.map(dim => {
     const rating = scoreToRating(dim.score);
@@ -922,3 +1169,4 @@ window.addEventListener('DOMContentLoaded',()=>{ renderLang(); document.getEleme
 </script>
 </body>
 </html>
+
