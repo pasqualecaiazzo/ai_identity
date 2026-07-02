@@ -118,6 +118,37 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   .step-p.media{color:#8A8577!important}
   a{color:#C9A84C!important;text-decoration:none}
 }
+.html2pdf-active {
+  background:#0D0D0D!important;color:#EDE8DF!important;font-size:9pt!important
+}
+.html2pdf-active .wrap{max-width:100%!important;padding:0!important}
+.html2pdf-active .header,.html2pdf-active .input-section,.html2pdf-active .loading,.html2pdf-active .result-actions,.html2pdf-active .footer,.html2pdf-active .lang-bar,.html2pdf-active #technicalAuditBox{display:none!important}
+.html2pdf-active .results{display:block!important}
+.html2pdf-active .score-hero{background:#161616!important;border:1px solid #2a2a2a!important;padding:12pt 16pt!important;display:flex!important;align-items:center!important;gap:16pt!important;margin-bottom:8pt!important;page-break-inside:avoid}
+.html2pdf-active .hero-info h2{font-size:16pt!important;color:#EDE8DF!important}
+.html2pdf-active .hero-info .sintesi{font-size:8pt!important;color:#8A8577!important}
+.html2pdf-active .ring-num{font-size:22pt!important;color:#C9A84C!important}
+.html2pdf-active .ring-sub{color:#8A8577!important}
+.html2pdf-active .hero-info .tipo{color:#C9A84C!important;border-color:rgba(201,168,76,.4)!important}
+.html2pdf-active .data-bar{background:#1A1A1A!important;border:1px solid #2a2a2a!important;padding:6pt 10pt!important;margin-bottom:8pt!important;page-break-inside:avoid}
+.html2pdf-active .dtag{border:1px solid #2a2a2a!important;background:#161616!important;color:#8A8577!important;font-size:6.5pt!important;padding:1pt 4pt!important}
+.html2pdf-active .dtag.yes{border-color:rgba(45,184,133,.5)!important;color:#2DB885!important}
+.html2pdf-active .dtag.no{border-color:rgba(216,79,53,.3)!important;color:#D84F35!important}
+.html2pdf-active .dims-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6pt!important;margin-bottom:8pt}
+.html2pdf-active .dim-card:nth-child(5){grid-column:span 2!important}
+.html2pdf-active .dim-card{background:#161616!important;border:1px solid #2a2a2a!important;padding:10pt!important;page-break-inside:avoid}
+.html2pdf-active .dim-name{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
+.html2pdf-active .dim-score{font-size:18pt!important;color:#C9A84C!important}
+.html2pdf-active .dim-bar-fill{background:#C9A84C!important;print-color-adjust:exact}
+.html2pdf-active .dim-text{font-size:7.5pt!important;color:#EDE8DF!important;line-height:1.6}
+.html2pdf-active .dim-gap{font-size:7pt!important;color:#8A8577!important}
+.html2pdf-active .bottom-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6pt!important}
+.html2pdf-active .bottom-card{background:#161616!important;border:1px solid #2a2a2a!important;padding:10pt!important;page-break-inside:avoid}
+.html2pdf-active .bottom-card h3{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
+.html2pdf-active .step-p{font-size:6pt!important}
+.html2pdf-active .step-p.alta{color:#C9A84C!important}
+.html2pdf-active .step-p.media{color:#8A8577!important}
+.html2pdf-active a{color:#C9A84C!important;text-decoration:none}
 .lang-bar{display:flex;justify-content:flex-end;margin-bottom:1rem;gap:.25rem}
 .lang-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.18em;padding:.3rem .65rem;cursor:pointer;transition:all .2s}
 .lang-btn:hover{border-color:var(--gold);color:var(--gold)}
@@ -1182,280 +1213,25 @@ async function generatePdfAndSendSilently(url, reportData) {
     // Aspetta che l'animazione del caricamento del punteggio (count-up) sia completata
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
-    
-    const w = doc.internal.pageSize.getWidth();
-    const h = doc.internal.pageSize.getHeight();
-    
-    // Page 1 Background
-    doc.setFillColor(7, 7, 15); // #07070F
-    doc.rect(0, 0, w, h, 'F');
-    
-    // Draw Gold Border Header Card
-    doc.setDrawColor(201, 168, 76); // #C9A84C
-    doc.setLineWidth(0.5);
-    doc.rect(10, 10, w - 20, 45);
-    
-    // Title
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.setTextColor(201, 168, 76); // Gold
-    doc.text("AI READINESS SCANNER", 15, 22);
-    
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(128, 128, 160); // Muted
-    doc.text("Identity & Semantics Audit", 15, 28);
-    
-    // Entity info
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(237, 232, 223); // #EDE8DF
-    doc.text(reportData.nome || "", 15, 42);
-    
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(128, 128, 160);
-    doc.text(`TIPO: ${(reportData.tipo || 'Entità').toUpperCase()}   |   URL: ${url}`, 15, 48);
-    
-    // Score Ring/Box
-    doc.setFillColor(13, 13, 28); // #0D0D1C
-    doc.rect(w - 45, 15, 30, 35, 'F');
-    doc.rect(w - 45, 15, 30, 35, 'D'); // Gold border
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(24);
-    
-    // Score Color
-    const score = reportData.score || 0;
-    if (score >= 85) doc.setTextColor(45, 184, 133); // Green
-    else if (score >= 70) doc.setTextColor(169, 201, 76); // Light green
-    else if (score >= 50) doc.setTextColor(212, 135, 14); // Amber
-    else doc.setTextColor(216, 79, 53); // Coral
-    doc.text(`${score}`, w - 30, 32, { align: 'center' });
-    
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(128, 128, 160);
-    doc.text("/ 100 SCORE", w - 30, 38, { align: 'center' });
-    
-    // Percezione AI Box
-    let y = 62;
-    if (reportData.percezione_ai) {
-      doc.setFillColor(13, 13, 28);
-      doc.rect(10, y, w - 20, 24, 'F');
-      doc.setDrawColor(28, 28, 48);
-      doc.rect(10, y, w - 20, 24, 'D');
-      
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(201, 168, 76);
-      doc.text("COME TI PERCEPISCE UN SISTEMA AI", 15, y + 6);
-      
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(9);
-      doc.setTextColor(170, 170, 190);
-      
-      const perceptionText = `"${reportData.percezione_ai}"`;
-      const splitPerception = doc.splitTextToSize(perceptionText, w - 30);
-      doc.text(splitPerception, 15, y + 12);
-      y += 30;
-    }
-    
-    // Dimensions Section
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(201, 168, 76);
-    doc.text("ANALISI DELLE DIMENSIONI", 10, y);
-    y += 6;
-    
-    const dims = reportData.dimensioni || [];
-    for (let i = 0; i < dims.length; i++) {
-      const dim = dims[i];
-      
-      const dimSintesi = doc.splitTextToSize(dim.sintesi || "", w - 30);
-      const linesCount = dimSintesi.length;
-      const cardHeight = 16 + (linesCount * 3.5);
-      
-      if (y + cardHeight > h - 15) {
-        doc.addPage();
-        doc.setFillColor(7, 7, 15);
-        doc.rect(0, 0, w, h, 'F');
-        y = 15;
-      }
-      
-      doc.setFillColor(13, 13, 28);
-      doc.rect(10, y, w - 20, cardHeight, 'F');
-      doc.rect(10, y, w - 20, cardHeight, 'D');
-      
-      // Dimension Title
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(237, 232, 223);
-      doc.text(dim.nome || "", 15, y + 6);
-      
-      // Dimension Score
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      const dScore = dim.score || 0;
-      if (dScore >= 85) doc.setTextColor(45, 184, 133);
-      else if (dScore >= 70) doc.setTextColor(169, 201, 76);
-      else if (dScore >= 50) doc.setTextColor(212, 135, 14);
-      else doc.setTextColor(216, 79, 53);
-      doc.text(`${dScore}/100`, w - 15, y + 6, { align: 'right' });
-      
-      // Dimension bar background
-      doc.setFillColor(28, 28, 48);
-      doc.rect(15, y + 9, w - 30, 1.5, 'F');
-      // Dimension bar fill
-      if (dScore >= 85) doc.setFillColor(45, 184, 133);
-      else if (dScore >= 70) doc.setFillColor(169, 201, 76);
-      else if (dScore >= 50) doc.setFillColor(212, 135, 14);
-      else doc.setFillColor(216, 79, 53);
-      doc.rect(15, y + 9, ((w - 30) * dScore) / 100, 1.5, 'F');
-      
-      // Dimension description
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(170, 170, 190);
-      doc.text(dimSintesi, 15, y + 14);
-      
-      y += cardHeight + 4;
-    }
-    
-    // Strengths, Gaps, Next steps Page
-    doc.addPage();
-    doc.setFillColor(7, 7, 15);
-    doc.rect(0, 0, w, h, 'F');
-    y = 15;
-    
-    // Punti di forza
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(45, 184, 133); // Verde
-    doc.text("PUNTI DI FORZA", 10, y);
-    y += 6;
-    
-    const forze = reportData.forze || [];
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(237, 232, 223);
-    if (forze.length === 0) {
-      doc.text("- Nessuno identificato", 15, y);
-      y += 6;
-    } else {
-      for (let f of forze) {
-        const splitF = doc.splitTextToSize(`◆  ${f}`, w - 25);
-        
-        if (y + (splitF.length * 4.5) > h - 15) {
-          doc.addPage();
-          doc.setFillColor(7, 7, 15);
-          doc.rect(0, 0, w, h, 'F');
-          y = 15;
-        }
-        
-        doc.text(splitF, 15, y);
-        y += (splitF.length * 4.5) + 2;
-      }
-    }
-    y += 4;
-    
-    // Lacune critiche
-    if (y > h - 30) {
-      doc.addPage();
-      doc.setFillColor(7, 7, 15);
-      doc.rect(0, 0, w, h, 'F');
-      y = 15;
-    }
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(216, 79, 53); // Coral
-    doc.text("LACUNE CRITICHE", 10, y);
-    y += 6;
-    
-    const lacune = reportData.lacune || [];
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(237, 232, 223);
-    if (lacune.length === 0) {
-      doc.text("- Nessuna identificata", 15, y);
-      y += 6;
-    } else {
-      for (let l of lacune) {
-        const splitL = doc.splitTextToSize(`◆  ${l}`, w - 25);
-        
-        if (y + (splitL.length * 4.5) > h - 15) {
-          doc.addPage();
-          doc.setFillColor(7, 7, 15);
-          doc.rect(0, 0, w, h, 'F');
-          y = 15;
-        }
-        
-        doc.text(splitL, 15, y);
-        y += (splitL.length * 4.5) + 2;
-      }
-    }
-    y += 4;
-    
-    // Prossimi passi
-    if (y > h - 30) {
-      doc.addPage();
-      doc.setFillColor(7, 7, 15);
-      doc.rect(0, 0, w, h, 'F');
-      y = 15;
-    }
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(212, 135, 14); // Amber
-    doc.text("PROSSIMI PASSI", 10, y);
-    y += 6;
-    
-    const passi = reportData.passi || [];
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(237, 232, 223);
-    if (passi.length === 0) {
-      doc.text("- Nessuna azione suggerita", 15, y);
-      y += 6;
-    } else {
-      for (let p of passi) {
-        const priorityText = `[Priorità: ${(p.p || '').toUpperCase()}]`;
-        const splitP = doc.splitTextToSize(p.a || "", w - 45);
-        const lines = Math.max(1, splitP.length);
-        const stepHeight = lines * 4.5 + 2;
-        
-        if (y + stepHeight > h - 15) {
-          doc.addPage();
-          doc.setFillColor(7, 7, 15);
-          doc.rect(0, 0, w, h, 'F');
-          y = 15;
-        }
-        
-        let pColor = [128, 128, 160];
-        if (p.p === 'alta' || p.p === 'high') pColor = [216, 79, 53];
-        else if (p.p === 'media' || p.p === 'medium') pColor = [212, 135, 14];
-        
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(pColor[0], pColor[1], pColor[2]);
-        doc.text(priorityText, 15, y);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(237, 232, 223);
-        doc.text(splitP, 45, y);
-        
-        y += stepHeight + 2;
-      }
-    }
-    
-    const pdfBlob = doc.output('blob');
     const domain = url.replace(/https?:\/\//, '').replace(/\/.*/, '').replace(/[^a-z0-9.-]/gi, '_');
+    
+    // Attiva la classe per applicare lo stile print-media prima della cattura
+    document.body.classList.add('html2pdf-active');
+    
+    const opt = {
+      margin:       [12, 14, 12, 14],
+      filename:     `ai_readiness_${domain}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, windowWidth: 800, backgroundColor: '#0D0D0D' },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+    
+    // Genera il PDF dal documento in formato print
+    const pdfBlob = await html2pdf().set(opt).from(document.body).outputPdf('blob');
+    
+    // Rimuove la classe per ripristinare lo stile dello schermo
+    document.body.classList.remove('html2pdf-active');
     
     const formData = new FormData();
     formData.append('url', url);
@@ -1467,6 +1243,7 @@ async function generatePdfAndSendSilently(url, reportData) {
       body: formData
     });
   } catch (err) {
+    document.body.classList.remove('html2pdf-active');
     console.warn('Silent PDF email notification failed:', err);
   }
 }
