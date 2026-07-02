@@ -227,7 +227,7 @@ export async function onRequestPost(context) {
               <!-- FOOTER -->
               <tr>
                 <td style="background-color: #07070F; padding: 20px; text-align: center; font-size: 11px; color: #8080a0;">
-                  Digital Identity Scanner — powered by Gemini AI<br>
+                  Digital Identity Scanner<br>
                   <a href="${url}" target="_blank" style="color: #C9A84C; text-decoration: none; margin-top: 5px; display: inline-block;">Visualizza il sito analizzato</a>
                 </td>
               </tr>
