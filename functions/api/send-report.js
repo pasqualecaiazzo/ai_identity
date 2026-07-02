@@ -23,17 +23,36 @@ export async function onRequestPost(context) {
   }
 
   try {
-    const { url, report } = await request.json();
+    const formData = await request.formData();
+    const url = formData.get('url');
+    const reportStr = formData.get('report');
+    const file = formData.get('file');
 
-    if (!url || !report) {
+    if (!url || !reportStr || !file) {
       return new Response(
-        JSON.stringify({ error: 'Parametri URL o Report mancanti.' }),
+        JSON.stringify({ error: 'Parametri URL, Report o File PDF mancanti.' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
+
+    const report = JSON.parse(reportStr);
+    const fileBuffer = await file.arrayBuffer();
+
+    // Funzione helper per convertire ArrayBuffer in Base64 in modo sicuro (senza limiti di argomenti)
+    const arrayBufferToBase64 = (buffer) => {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    };
+
+    const fileBase64 = arrayBufferToBase64(fileBuffer);
 
     const domain = url.replace(/https?:\/\//, '').replace(/\/.*/, '');
 
@@ -234,7 +253,13 @@ export async function onRequestPost(context) {
         from: `AI Scan <${senderEmail}>`,
         to: destinationEmail,
         subject: `Report AI Readiness: ${domain} (Score: ${report.score}/100)`,
-        html: htmlContent
+        html: htmlContent,
+        attachments: [
+          {
+            filename: file.name,
+            content: fileBase64
+          }
+        ]
       })
     });
 

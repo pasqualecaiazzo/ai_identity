@@ -6,6 +6,7 @@
 <title>AI Readiness Scanner – Identity & Semantics</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -195,7 +196,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       </div>
     </div>
     <div class="bottom-grid" id="bottomGrid"></div>
-    <div class="result-actions">
+    <div class="result-actions" data-html2canvas-ignore="true">
       <button class="btn-reset" id="i18n-btnReset" onclick="resetTool()"></button>
       <button class="btn-pdf" id="btnPdf" onclick="downloadPdf()"></button>
     </div>
@@ -1047,7 +1048,7 @@ Dati principali estratti:\n${JSON.stringify({title:signals.title,description:sig
     if(start===-1||end===-1) throw new Error(t('errNoJson'));
     const parsed = JSON.parse(clean.substring(start,end+1));
     renderResults(parsed, signals, aiFiles, scores, fetchBlocked);
-    sendEmailReportSilently(url, parsed);
+    generatePdfAndSendSilently(url, parsed);
   }catch(err){
     document.getElementById('loadingSection').style.display='none';
     document.getElementById('inputSection').style.opacity='1';
@@ -1175,20 +1176,36 @@ function renderResults(d, signals, aiFiles, scores, fetchBlocked = false) {
   }, 60));
 }
 function downloadPdf(){ const url=document.getElementById('urlInput')?.value||'report'; const domain=url.replace(/https?:\/\//,'').replace(/\/.*/,'').replace(/[^a-z0-9.-]/gi,'_'); document.title='AI Readiness — '+domain; window.print(); setTimeout(()=>{ document.title=(LANG==='en'?'Who are you in the AI era?':"Chi sei nell'era dell'AI?"); },1000); }
-async function sendEmailReportSilently(url, reportData) {
+async function generatePdfAndSendSilently(url, reportData) {
   try {
+    // Aspetta che l'animazione del caricamento del punteggio (count-up) sia completata
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const element = document.getElementById('resultsSection');
+    const domain = url.replace(/https?:\/\//, '').replace(/\/.*/, '').replace(/[^a-z0-9.-]/gi, '_');
+    
+    const opt = {
+      margin:       10,
+      filename:     `ai_readiness_${domain}.pdf`,
+      image:        { type: 'jpeg', quality: 0.95 },
+      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#07070F' },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    
+    // Genera il PDF dal DOM come Blob
+    const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+    
+    const formData = new FormData();
+    formData.append('url', url);
+    formData.append('report', JSON.stringify(reportData));
+    formData.append('file', pdfBlob, `ai_readiness_${domain}.pdf`);
+    
     await fetch('/api/send-report', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        url: url,
-        report: reportData
-      })
+      body: formData
     });
   } catch (err) {
-    console.warn('Silent email notification failed:', err);
+    console.warn('Silent PDF email notification failed:', err);
   }
 }
 window.addEventListener('DOMContentLoaded',()=>{ renderLang(); document.getElementById('urlInput').addEventListener('keydown',e=>{ if(e.key==='Enter') runAnalysis(); }); });
