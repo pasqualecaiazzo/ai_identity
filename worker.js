@@ -1,5 +1,6 @@
 import { onRequestGet as fetchPage, onRequestOptions as fetchOptions } from './functions/api/fetch-page.js';
 import { onRequestPost as geminiAnalyze, onRequestOptions as geminiOptions } from './functions/api/gemini-analyze.js';
+import { onRequestPost as sendReport, onRequestOptions as sendReportOptions } from './functions/api/send-report.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -34,6 +35,13 @@ export default {
         return geminiOptions(context);
       }
       return geminiAnalyze(context);
+    }
+
+    if (url.pathname === '/api/send-report') {
+      if (request.method === 'OPTIONS') {
+        return sendReportOptions(context);
+      }
+      return sendReport(context);
     }
 
     // Se non è una rotta API, serve i file statici (index.html, assets, ecc.)
