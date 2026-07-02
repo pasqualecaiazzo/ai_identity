@@ -52,15 +52,29 @@ export async function onRequestPost(context) {
       return btoa(binary);
     };
 
+    const lang = formData.get('lang') || 'it';
+    const isEn = lang === 'en';
+
+    const labelReportFor = isEn ? 'Report for' : 'Report per';
+    const labelSintesi = isEn ? 'General Synthesis' : 'Sintesi Generale';
+    const labelDimensioni = isEn ? 'Dimensions Analysis' : 'Analisi delle Dimensioni';
+    const labelForze = isEn ? 'Strengths' : 'Punti di Forza';
+    const labelLacune = isEn ? 'Critical Gaps' : 'Lacune Critiche';
+    const labelPassi = isEn ? 'Recommended Next Steps' : 'Prossimi Passi Consigliati';
+    const labelLink = isEn ? 'View analyzed site' : 'Visualizza il sito analizzato';
+    const labelCriticita = isEn ? 'Critical Gap:' : 'Criticità:';
+
     const fileBase64 = arrayBufferToBase64(fileBuffer);
 
     const domain = url.replace(/https?:\/\//, '').replace(/\/.*/, '');
 
     // Funzione helper per ottenere il colore associato al punteggio
     const getScoreColor = (score) => {
-      if (score >= 85) return '#2DB885'; // Eccellente (Verde)
-      if (score >= 70) return '#A9C94C'; // Buono (Verde chiaro)
-      if (score >= 50) return '#D4870E'; // Parziale (Arancio)
+      const s = parseInt(score);
+      if (isNaN(s)) return '#D84F35';
+      if (s >= 85) return '#2DB885'; // Eccellente (Verde)
+      if (s >= 70) return '#A9C94C'; // Buono (Verde chiaro)
+      if (s >= 50) return '#D4870E'; // Parziale (Arancio)
       return '#D84F35'; // Critico (Rosso)
     };
 
@@ -73,7 +87,7 @@ export async function onRequestPost(context) {
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Report AI Readiness per ${domain}</title>
+      <title>${labelReportFor} ${domain}</title>
     </head>
     <body style="margin: 0; padding: 0; background-color: #f4f4f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f4f7; padding: 20px 0;">
@@ -85,7 +99,7 @@ export async function onRequestPost(context) {
               <tr>
                 <td style="background-color: #07070F; padding: 30px; text-align: center;">
                   <span style="font-size: 10px; letter-spacing: 0.35em; color: #C9A84C; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 5px;">AI Readiness Scanner</span>
-                  <h1 style="color: #EDE8DF; font-family: Georgia, serif; font-size: 22px; margin: 0; font-weight: normal;">Report per <span style="color: #C9A84C;">${domain}</span></h1>
+                  <h1 style="color: #EDE8DF; font-family: Georgia, serif; font-size: 22px; margin: 0; font-weight: normal;">${labelReportFor} <span style="color: #C9A84C;">${domain}</span></h1>
                 </td>
               </tr>
 
@@ -116,7 +130,7 @@ export async function onRequestPost(context) {
               <!-- GENERAL SYNTHESIS -->
               <tr>
                 <td style="padding: 25px 20px; border-bottom: 1px solid #e2e8f0;">
-                  <h3 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #C9A84C; margin: 0 0 10px 0; font-weight: bold;">Sintesi Generale</h3>
+                  <h3 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #C9A84C; margin: 0 0 10px 0; font-weight: bold;">${labelSintesi}</h3>
                   <p style="font-size: 13px; line-height: 1.6; color: #2d3748; margin: 0;">${report.sintesi || ''}</p>
                 </td>
               </tr>
@@ -124,7 +138,7 @@ export async function onRequestPost(context) {
               <!-- DIMENSIONS -->
               <tr>
                 <td style="padding: 25px 20px; border-bottom: 1px solid #e2e8f0;">
-                  <h3 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #C9A84C; margin: 0 0 20px 0; font-weight: bold;">Analisi delle Dimensioni</h3>
+                  <h3 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #C9A84C; margin: 0 0 20px 0; font-weight: bold;">${labelDimensioni}</h3>
                   
                   ${(report.dimensioni || []).map(dim => {
                     const dimColor = getScoreColor(dim.score);
@@ -155,7 +169,7 @@ export async function onRequestPost(context) {
                           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 8px;">
                             <tr>
                               <td style="background-color: #fff5f5; border-left: 3px solid #D84F35; padding: 8px 12px; font-size: 12px; color: #D84F35; line-height: 1.5;">
-                                <strong>Criticità:</strong> ${dim.gap}
+                                <strong>${labelCriticita}</strong> ${dim.gap}
                               </td>
                             </tr>
                           </table>
@@ -170,7 +184,7 @@ export async function onRequestPost(context) {
               ${report.forze && report.forze.length > 0 ? `
                 <tr>
                   <td style="padding: 25px 20px; border-bottom: 1px solid #e2e8f0; background-color: #fafcfb;">
-                    <h3 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #2DB885; margin: 0 0 15px 0; font-weight: bold;">Punti di Forza</h3>
+                    <h3 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #2DB885; margin: 0 0 15px 0; font-weight: bold;">${labelForze}</h3>
                     <table width="100%" cellpadding="0" cellspacing="0" border="0">
                       ${report.forze.map(f => `
                         <tr>
@@ -187,7 +201,7 @@ export async function onRequestPost(context) {
               ${report.lacune && report.lacune.length > 0 ? `
                 <tr>
                   <td style="padding: 25px 20px; border-bottom: 1px solid #e2e8f0; background-color: #fcfafa;">
-                    <h3 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #D84F35; margin: 0 0 15px 0; font-weight: bold;">Lacune Critiche</h3>
+                    <h3 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #D84F35; margin: 0 0 15px 0; font-weight: bold;">${labelLacune}</h3>
                     <table width="100%" cellpadding="0" cellspacing="0" border="0">
                       ${report.lacune.map(l => `
                         <tr>
@@ -204,7 +218,7 @@ export async function onRequestPost(context) {
               ${report.passi && report.passi.length > 0 ? `
                 <tr>
                   <td style="padding: 25px 20px; background-color: #fdfcfa;">
-                    <h3 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #D4870E; margin: 0 0 15px 0; font-weight: bold;">Prossimi Passi Consigliati</h3>
+                    <h3 style="font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #D4870E; margin: 0 0 15px 0; font-weight: bold;">${labelPassi}</h3>
                     <table width="100%" cellpadding="0" cellspacing="0" border="0">
                       ${report.passi.map(p => {
                         const priorityColor = p.p === 'alta' || p.p === 'high' ? '#D84F35' : p.p === 'media' || p.p === 'medium' ? '#D4870E' : '#8080A0';
@@ -228,7 +242,7 @@ export async function onRequestPost(context) {
               <tr>
                 <td style="background-color: #07070F; padding: 20px; text-align: center; font-size: 11px; color: #8080a0;">
                   Digital Identity Scanner<br>
-                  <a href="${url}" target="_blank" style="color: #C9A84C; text-decoration: none; margin-top: 5px; display: inline-block;">Visualizza il sito analizzato</a>
+                  <a href="${url}" target="_blank" style="color: #C9A84C; text-decoration: none; margin-top: 5px; display: inline-block;">${labelLink}</a>
                 </td>
               </tr>
 
@@ -252,7 +266,7 @@ export async function onRequestPost(context) {
       body: JSON.stringify({
         from: `AI Scan <${senderEmail}>`,
         to: destinationEmail,
-        subject: `Report AI Readiness: ${domain} (Score: ${report.score}/100)`,
+        subject: isEn ? `AI Readiness Report: ${domain} (Score: ${report.score}/100)` : `Report AI Readiness: ${domain} (Score: ${report.score}/100)`,
         html: htmlContent,
         attachments: [
           {

@@ -106,13 +106,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   .dim-card:nth-child(5){grid-column:span 2!important}
   .dim-card{background:#161616!important;border:1px solid #2a2a2a!important;padding:10pt!important;page-break-inside:avoid}
   .dim-name{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
-  .dim-score{font-size:18pt!important;color:#C9A84C!important}
-  .dim-bar-fill{background:#C9A84C!important;print-color-adjust:exact}
-  .dim-text{font-size:7.5pt!important;color:#EDE8DF!important;line-height:1.6}
+  .dim-score-n{font-size:18pt!important;color:#C9A84C!important}
+  .bar-fill{background:#C9A84C!important;print-color-adjust:exact}
+  .dim-sintesi{font-size:7.5pt!important;color:#EDE8DF!important;line-height:1.6}
   .dim-gap{font-size:7pt!important;color:#8A8577!important}
   .bottom-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6pt!important}
   .bottom-card{background:#161616!important;border:1px solid #2a2a2a!important;padding:10pt!important;page-break-inside:avoid}
-  .bottom-card h3{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
+  .bottom-card .bottom-title{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
   .step-p{font-size:6pt!important}
   .step-p.alta{color:#C9A84C!important}
   .step-p.media{color:#8A8577!important}
@@ -142,13 +142,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .html2pdf-active .dim-card:nth-child(5){grid-column:span 2!important}
 .html2pdf-active .dim-card{background:#161616!important;border:1px solid #2a2a2a!important;padding:10pt!important;page-break-inside:avoid}
 .html2pdf-active .dim-name{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
-.html2pdf-active .dim-score{font-size:18pt!important;color:#C9A84C!important}
-.html2pdf-active .dim-bar-fill{background:#C9A84C!important;print-color-adjust:exact}
-.html2pdf-active .dim-text{font-size:7.5pt!important;color:#EDE8DF!important;line-height:1.6}
+.html2pdf-active .dim-score-n{font-size:18pt!important;color:#C9A84C!important}
+.html2pdf-active .bar-fill{background:#C9A84C!important;print-color-adjust:exact}
+.html2pdf-active .dim-sintesi{font-size:7.5pt!important;color:#EDE8DF!important;line-height:1.6}
 .html2pdf-active .dim-gap{font-size:7pt!important;color:#8A8577!important}
 .html2pdf-active .bottom-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6pt!important}
 .html2pdf-active .bottom-card{background:#161616!important;border:1px solid #2a2a2a!important;padding:10pt!important;page-break-inside:avoid}
-.html2pdf-active .bottom-card h3{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
+.html2pdf-active .bottom-card .bottom-title{font-size:7pt!important;color:#8A8577!important;letter-spacing:.15em}
+.html2pdf-active #technicalAuditBox {display:none!important}
 .html2pdf-active .step-p{font-size:6pt!important}
 .html2pdf-active .step-p.alta{color:#C9A84C!important}
 .html2pdf-active .step-p.media{color:#8A8577!important}
@@ -1202,44 +1203,50 @@ function renderResults(d, signals, aiFiles, scores, fetchBlocked = false) {
   }).join('');
   let passi = (d.passi || []).filter(p => p && typeof p==='object' && p.a);
   if (passi.length === 0 && d.lacune && d.lacune.length) passi = [{p:'media', a:'Verifica la configurazione dell\'array "passi" nel JSON restituito.'}];
+  d.passi = passi;
   document.getElementById('bottomGrid').innerHTML = `<div class="bottom-card"><div class="bottom-title" style="color:#2DB885">${LANG==='en'?'Strengths':'Punti di forza'}</div>${(d.forze||[]).map(f=>`<div class="b-item"><span class="b-icon" style="color:#2DB885">◆</span>${f}</div>`).join('')}</div><div class="bottom-card"><div class="bottom-title" style="color:#D84F35">${LANG==='en'?'Critical gaps':'Lacune critiche'}</div>${(d.lacune||[]).map(l=>`<div class="b-item"><span class="b-icon" style="color:#D84F35">◆</span>${l}</div>`).join('')}</div><div class="bottom-card"><div class="bottom-title" style="color:#D4870E">${LANG==='en'?'Next steps':'Prossimi passi'}</div>${passi.map(p=>`<div class="step-item"><div class="step-p" style="color:${p.p==='alta'||p.p==='high'?'#D84F35':p.p==='media'||p.p==='medium'?'#D4870E':'#8080A0'}">↑ ${p.p}</div><div class="step-a">${p.a}</div></div>`).join('')}</div>`;
   document.getElementById('resultsSection').style.display = 'block';
   requestAnimationFrame(() => setTimeout(() => {
     const ring = document.getElementById('scoreRing');
     if (ring) ring.style.strokeDashoffset = off;
     let c = 0, total = d.score;
-    const iv = setInterval(() => { c = Math.min(c+1, total); const el = document.getElementById('scoreNum'); if (el) el.textContent = c; if (c >= total) clearInterval(iv); }, 1500/total);
+    if (total <= 0) {
+      const el = document.getElementById('scoreNum');
+      if (el) el.textContent = '0';
+    } else {
+      const iv = setInterval(() => { c = Math.min(c+1, total); const el = document.getElementById('scoreNum'); if (el) el.textContent = c; if (c >= total) clearInterval(iv); }, 1500/total);
+    }
     document.querySelectorAll('.bar-fill').forEach(b => { b.style.width = b.dataset.w + '%'; });
   }, 60));
 }
 function downloadPdf(){ const url=document.getElementById('urlInput')?.value||'report'; const domain=url.replace(/https?:\/\//,'').replace(/\/.*/,'').replace(/[^a-z0-9.-]/gi,'_'); document.title='AI Readiness — '+domain; window.print(); setTimeout(()=>{ document.title=(LANG==='en'?'Who are you in the AI era?':"Chi sei nell'era dell'AI?"); },1000); }
 async function generatePdfAndSendSilently(url, reportData) {
   try {
-    // Aspetta che l'animazione sia del tutto completata (2.5 secondi)
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    
     const domain = url.replace(/https?:\/\//, '').replace(/\/.*/, '').replace(/[^a-z0-9.-]/gi, '_');
     
-    // Clona solo la sezione dei risultati
+    // Clona la sezione dei risultati IMMEDIATAMENTE (sincronamente, prima di qualsiasi timeout)
     const resultsEl = document.getElementById('resultsSection');
     if (!resultsEl) return;
     const clone = resultsEl.cloneNode(true);
     
-    // Copia i valori attuali delle animazioni (punteggio e anello) dal DOM reale al clone
+    // Popola le proprietà direttamente nel clone usando i dati del reportData
+    // Evita di dipendere dallo stato visuale del DOM reale (evita race conditions)
     const scoreNum = clone.querySelector('#scoreNum');
-    const origScoreNum = document.getElementById('scoreNum');
-    if (scoreNum && origScoreNum) scoreNum.textContent = origScoreNum.textContent;
+    if (scoreNum) scoreNum.textContent = reportData.score;
     
     const scoreRing = clone.querySelector('#scoreRing');
-    const origScoreRing = document.getElementById('scoreRing');
-    if (scoreRing && origScoreRing) scoreRing.style.strokeDashoffset = origScoreRing.style.strokeDashoffset;
+    if (scoreRing) {
+      const R = 40;
+      const circ = (2 * Math.PI * R).toFixed(2);
+      scoreRing.style.strokeDashoffset = (circ - (reportData.score / 100) * circ).toFixed(2);
+    }
     
-    // Copia le larghezze delle barre di progresso calcolate nel clone
-    const origBars = document.querySelectorAll('.bar-fill');
+    // Imposta le barre di progresso calcolate nel clone
     const cloneBars = clone.querySelectorAll('.bar-fill');
-    for (let i = 0; i < origBars.length; i++) {
-      if (cloneBars[i]) {
-        cloneBars[i].style.width = origBars[i].style.width;
+    const dims = reportData.dimensioni || [];
+    for (let i = 0; i < dims.length; i++) {
+      if (cloneBars[i] && dims[i]) {
+        cloneBars[i].style.width = dims[i].score + '%';
       }
     }
     
@@ -1259,6 +1266,9 @@ async function generatePdfAndSendSilently(url, reportData) {
     container.appendChild(clone);
     document.body.appendChild(container);
     
+    // Aspetta una piccolissima frazione di secondo (50ms) affinché il browser applichi gli stili al clone nel DOM
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     const opt = {
       margin:       0, // Il margine è gestito dal padding interno di .html2pdf-active per prevenire ritagli
       filename:     `ai_readiness_${domain}.pdf`,
@@ -1277,6 +1287,7 @@ async function generatePdfAndSendSilently(url, reportData) {
     const formData = new FormData();
     formData.append('url', url);
     formData.append('report', JSON.stringify(reportData));
+    formData.append('lang', LANG);
     formData.append('file', pdfBlob, `ai_readiness_${domain}.pdf`);
     
     await fetch('/api/send-report', {
