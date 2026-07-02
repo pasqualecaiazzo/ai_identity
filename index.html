@@ -1128,6 +1128,7 @@ function renderResults(d, signals, aiFiles, scores, fetchBlocked = false) {
     }
   }
   const dimensioniArray = Object.values(standardDims);
+  d.dimensioni = dimensioniArray;
   document.getElementById('loadingSection').style.display = 'none';
   document.getElementById('inputSection').style.display = 'none';
   const R = 40, circ = (2 * Math.PI * R).toFixed(2), off = (circ - (d.score/100)*circ).toFixed(2), color = sc(d.score);
