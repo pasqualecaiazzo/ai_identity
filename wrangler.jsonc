@@ -3,6 +3,9 @@
   "name": "ai-identity",
   "main": "worker.js",
   "compatibility_date": "2026-06-11",
+  "vars": {
+    "DESTINATION_EMAIL": "pasqualecaiazzo.adv@gmail.com"
+  },
   "observability": {
     "enabled": true
   },

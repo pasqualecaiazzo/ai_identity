@@ -17,8 +17,7 @@ export default {
     if (url.pathname === '/api/debug-env') {
       return new Response(JSON.stringify({
         keys: Object.keys(env),
-        types: Object.fromEntries(Object.keys(env).map(k => [k, typeof env[k]])),
-        lengths: Object.fromEntries(Object.keys(env).map(k => [k, typeof env[k] === 'string' ? env[k].length : null]))
+        types: Object.fromEntries(Object.keys(env).map(k => [k, typeof env[k]]))
       }), {
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });
