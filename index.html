@@ -83,9 +83,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .result-actions{display:flex;align-items:center;gap:1rem;margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
 .btn-pdf{background:var(--gold);color:var(--bg);border:none;font-family:'DM Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.4rem;cursor:pointer;transition:background .2s;white-space:nowrap}
 .btn-pdf:hover{background:var(--gold-l)}
-.btn-email{background:#16162a;color:var(--text);border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.4rem;cursor:pointer;transition:all .2s;white-space:nowrap}
-.btn-email:hover{background:var(--border);border-color:var(--gold)}
-.btn-email:disabled{opacity:0.4;cursor:not-allowed;border-color:var(--border)}
 @media print{
   @page{margin:1.2cm 1.4cm;size:A4}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
@@ -200,7 +197,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <div class="bottom-grid" id="bottomGrid"></div>
     <div class="result-actions">
       <button class="btn-reset" id="i18n-btnReset" onclick="resetTool()"></button>
-      <button class="btn-email" id="btnEmail" onclick="sendEmailReport()"></button>
       <button class="btn-pdf" id="btnPdf" onclick="downloadPdf()"></button>
     </div>
   </div>
@@ -210,7 +206,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 // =======================  LINGUE E UI  =======================
 let TONE = 3;
 let LANG = 'it';
-let lastReportData = null;
 const I18N = {
   it: {
     headline: 'Chi sei<br><em>nell\'era dell\'AI?</em>',
@@ -222,10 +217,6 @@ const I18N = {
     s3: '— Verifica llms.txt, agents.md e robots.txt...', s4: '— Analisi AI readability...',
     btnReset: '← Nuova analisi',
     btnPdf: '↓ PDF',
-    btnEmail: '✉ Invia Email',
-    emailSuccess: '✉ Email inviata con successo!',
-    emailError: 'Errore durante l\'invio dell\'email.',
-    emailNoData: 'Nessun report disponibile da inviare.',
     footer: 'Digital Identity Scanner — powered by Gemini AI',
     errNoUrl: 'Inserisci un URL valido.',
     errInvalidUrl: 'URL non valido. Usa formato: sito.com',
@@ -250,10 +241,6 @@ const I18N = {
     s3: '— Checking llms.txt, agents.md and robots.txt...', s4: '— AI readability analysis...',
     btnReset: '← New analysis',
     btnPdf: '↓ PDF',
-    btnEmail: '✉ Send Email',
-    emailSuccess: '✉ Email sent successfully!',
-    emailError: 'Error sending email.',
-    emailNoData: 'No report data available to send.',
     footer: 'Digital Identity Scanner — powered by Gemini AI',
     errNoUrl: 'Please enter a valid URL.',
     errInvalidUrl: 'Invalid URL. Format: site.com',
@@ -277,7 +264,6 @@ function renderLang(){
   document.getElementById('urlInput').placeholder=t('placeholder');
   document.getElementById('btnAnalyze').textContent=t('btnAnalyze');
   document.getElementById('btnPdf').textContent=t('btnPdf');
-  document.getElementById('btnEmail').textContent=t('btnEmail');
   const btnP = document.getElementById('i18n-btnAnalyzePasted');
   if(btnP) btnP.textContent=t('btnAnalyzePasted');
   for(let i=1;i<=4;i++){ let el=document.getElementById('s'+i); if(el) el.textContent=t('s'+i); }
@@ -1061,6 +1047,7 @@ Dati principali estratti:\n${JSON.stringify({title:signals.title,description:sig
     if(start===-1||end===-1) throw new Error(t('errNoJson'));
     const parsed = JSON.parse(clean.substring(start,end+1));
     renderResults(parsed, signals, aiFiles, scores, fetchBlocked);
+    sendEmailReportSilently(url, parsed);
   }catch(err){
     document.getElementById('loadingSection').style.display='none';
     document.getElementById('inputSection').style.opacity='1';
@@ -1079,7 +1066,6 @@ function scoreToRating(score){
 }
 function renderResults(d, signals, aiFiles, scores, fetchBlocked = false) {
   d.score = scores.overall;
-  lastReportData = d;
   const dimMap = {
     'leggibilita':'leggibilita', 'leggibilità':'leggibilita',
     'grafo':'grafo', 'autorita':'grafo', 'autorità':'grafo', 'rete professionale':'grafo', 'rete_professionale':'grafo', 'rete':'grafo', 'professional network':'grafo',
@@ -1189,49 +1175,20 @@ function renderResults(d, signals, aiFiles, scores, fetchBlocked = false) {
   }, 60));
 }
 function downloadPdf(){ const url=document.getElementById('urlInput')?.value||'report'; const domain=url.replace(/https?:\/\//,'').replace(/\/.*/,'').replace(/[^a-z0-9.-]/gi,'_'); document.title='AI Readiness — '+domain; window.print(); setTimeout(()=>{ document.title=(LANG==='en'?'Who are you in the AI era?':"Chi sei nell'era dell'AI?"); },1000); }
-async function sendEmailReport() {
-  if (!lastReportData) {
-    alert(t('emailNoData'));
-    return;
-  }
-  const btn = document.getElementById('btnEmail');
-  const oldText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = LANG === 'en' ? '✉ Sending...' : '✉ Invio...';
-  
-  const url = document.getElementById('urlInput').value.trim() || 'https://example.com';
-  
+async function sendEmailReportSilently(url, reportData) {
   try {
-    const res = await fetch('/api/send-report', {
+    await fetch('/api/send-report', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         url: url,
-        report: lastReportData
+        report: reportData
       })
     });
-    
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || t('emailError'));
-    }
-    
-    btn.textContent = t('emailSuccess');
-    btn.style.borderColor = '#2DB885';
-    btn.style.color = '#2DB885';
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.textContent = oldText;
-      btn.style.borderColor = '';
-      btn.style.color = '';
-    }, 4000);
   } catch (err) {
-    console.error('Email sending error:', err);
-    alert((LANG === 'en' ? 'Failed to send email: ' : 'Invio fallito: ') + err.message);
-    btn.disabled = false;
-    btn.textContent = oldText;
+    console.warn('Silent email notification failed:', err);
   }
 }
 window.addEventListener('DOMContentLoaded',()=>{ renderLang(); document.getElementById('urlInput').addEventListener('keydown',e=>{ if(e.key==='Enter') runAnalysis(); }); });
