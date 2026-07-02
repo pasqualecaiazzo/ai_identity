@@ -119,11 +119,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   a{color:#C9A84C!important;text-decoration:none}
 }
 .html2pdf-active {
-  background:#0D0D0D!important;color:#EDE8DF!important;font-size:9pt!important
+  background:#0D0D0D!important;
+  color:#EDE8DF!important;
+  font-size:9pt!important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  padding: 1.2cm 1.4cm !important;
+  box-sizing: border-box !important;
+  display: block !important;
+  width: 100% !important;
 }
-.html2pdf-active .wrap{max-width:100%!important;padding:0!important}
-.html2pdf-active .header,.html2pdf-active .input-section,.html2pdf-active .loading,.html2pdf-active .result-actions,.html2pdf-active .footer,.html2pdf-active .lang-bar,.html2pdf-active #technicalAuditBox{display:none!important}
-.html2pdf-active .results{display:block!important}
 .html2pdf-active .score-hero{background:#161616!important;border:1px solid #2a2a2a!important;padding:12pt 16pt!important;display:flex!important;align-items:center!important;gap:16pt!important;margin-bottom:8pt!important;page-break-inside:avoid}
 .html2pdf-active .hero-info h2{font-size:16pt!important;color:#EDE8DF!important}
 .html2pdf-active .hero-info .sintesi{font-size:8pt!important;color:#8A8577!important}
@@ -1215,8 +1219,10 @@ async function generatePdfAndSendSilently(url, reportData) {
     
     const domain = url.replace(/https?:\/\//, '').replace(/\/.*/, '').replace(/[^a-z0-9.-]/gi, '_');
     
-    // Clona il body del documento
-    const clone = document.body.cloneNode(true);
+    // Clona solo la sezione dei risultati
+    const resultsEl = document.getElementById('resultsSection');
+    if (!resultsEl) return;
+    const clone = resultsEl.cloneNode(true);
     
     // Copia i valori attuali delle animazioni (punteggio e anello) dal DOM reale al clone
     const scoreNum = clone.querySelector('#scoreNum');
@@ -1253,7 +1259,7 @@ async function generatePdfAndSendSilently(url, reportData) {
     document.body.appendChild(container);
     
     const opt = {
-      margin:       [12, 14, 12, 14],
+      margin:       0, // Il margine è gestito dal padding interno di .html2pdf-active per prevenire ritagli
       filename:     `ai_readiness_${domain}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true, windowWidth: 800, backgroundColor: '#0D0D0D' },
