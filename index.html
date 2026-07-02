@@ -126,7 +126,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   padding: 1.2cm 1.4cm !important;
   box-sizing: border-box !important;
   display: block !important;
-  width: 100% !important;
+  width: 800px !important;
 }
 .html2pdf-active .score-hero{background:#161616!important;border:1px solid #2a2a2a!important;padding:12pt 16pt!important;display:flex!important;align-items:center!important;gap:16pt!important;margin-bottom:8pt!important;page-break-inside:avoid}
 .html2pdf-active .hero-info h2{font-size:16pt!important;color:#EDE8DF!important}
@@ -165,9 +165,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .tone-btn.active{border-color:var(--gold);color:var(--bg);background:var(--gold)}
 .tone-desc{font-size:.62rem;color:var(--dim);font-style:italic;flex:1;min-width:140px}
 @media(max-width:600px){
-  .score-hero{flex-direction:column;align-items:flex-start;gap:1.2rem}
-  .dims-grid{grid-template-columns:1fr}.dim-card:nth-child(5){grid-column:span 1}
-  .bottom-grid{grid-template-columns:1fr}
+  .score-hero:not(.html2pdf-active *){flex-direction:column;align-items:flex-start;gap:1.2rem}
+  .dims-grid:not(.html2pdf-active *){grid-template-columns:1fr}.dim-card:nth-child(5):not(.html2pdf-active *){grid-column:span 1}
+  .bottom-grid:not(.html2pdf-active *){grid-template-columns:1fr}
   .header h1{font-size:1.9rem}
   .input-row{flex-direction:column}.btn-analyze{width:100%}
   .tone-row{flex-direction:column;align-items:flex-start}
